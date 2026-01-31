@@ -11,6 +11,10 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'Takt',
   description: 'Demand and Supply Planning for Transportation',
+  icons: {
+    icon: '/takt-emblem-1-blue.png',
+    apple: '/takt-emblem-1-blue.png',
+  },
 }
 
 export default function RootLayout({
