@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/layout'
 import { getSession } from '@/lib/auth'
 
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardLayout({
   children,
 }: {
