@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { Logo } from '@/components/layout/logo'
 import {
   BarChart3,
