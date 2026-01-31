@@ -1,4 +1,4 @@
-// Trella Transportation Planning - Database Schema
+// Silsila - Transportation Planning Database Schema
 // Week structure: Sunday (day1) to Saturday (day7)
 
 generator client {

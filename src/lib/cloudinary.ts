@@ -9,7 +9,7 @@ cloudinary.config({
 export { cloudinary }
 
 // Avatar upload settings
-export const AVATAR_FOLDER = 'trella/avatars'
+export const AVATAR_FOLDER = 'silsila/avatars'
 export const AVATAR_TRANSFORMATION = {
   width: 400,
   height: 400,
@@ -26,7 +26,7 @@ export function getPublicIdFromUrl(url: string): string | null {
     const match = url.match(/\/([^\/]+)\.[^.]+$/)
     if (!match) return null
 
-    // For URLs with folders: trella/avatars/user-id-timestamp
+    // For URLs with folders: silsila/avatars/user-id-timestamp
     const parts = url.split('/upload/')
     if (parts.length < 2) return null
 

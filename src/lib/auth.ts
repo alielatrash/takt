@@ -3,7 +3,7 @@ import { prisma } from './prisma'
 import type { Session, SessionUser, UserRole } from '@/types'
 import crypto from 'crypto'
 
-const SESSION_COOKIE_NAME = 'trella_session'
+const SESSION_COOKIE_NAME = 'silsila_session'
 const SESSION_MAX_AGE = 7 * 24 * 60 * 60 // 7 days in seconds
 
 // Generate a secure random token
@@ -142,8 +142,8 @@ export function hasPermission(role: UserRole, permission: string): boolean {
 }
 
 // Validate email domain
-export function isValidTrellaEmail(email: string): boolean {
-  return email.toLowerCase().endsWith('@trella.app')
+export function isValidSilsilaEmail(email: string): boolean {
+  return email.toLowerCase().endsWith('@silsila.app')
 }
 
 // Clean up expired sessions (for cron job)

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { Logo } from '@/components/layout/logo'
 import {
   BarChart3,
@@ -26,8 +27,14 @@ export default function LandingPage() {
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur-sm">
         <div className="container mx-auto flex h-20 items-center justify-between px-6">
           <div className="flex items-center gap-2.5">
-            <Logo size="md" />
-            <span className="text-xl font-bold text-slate-900">Silsila</span>
+            <Image
+              src="/silsila-logo-2.png"
+              alt="Silsila"
+              width={120}
+              height={40}
+              className="h-10 w-auto"
+              priority
+            />
           </div>
           <nav className="hidden items-center gap-8 md:flex">
             <Link href="#features" className="text-sm font-medium text-slate-600 transition-colors hover:text-slate-900">

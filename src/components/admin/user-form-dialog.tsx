@@ -128,7 +128,7 @@ export function UserFormDialog({ open, onOpenChange, onSubmit }: UserFormDialogP
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="john.doe@trella.app" {...field} />
+                    <Input type="email" placeholder="john.doe@silsila.app" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

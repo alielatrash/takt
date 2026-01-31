@@ -641,10 +641,10 @@ async function main() {
   const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 12)
 
   await prisma.user.upsert({
-    where: { email: 'admin@trella.app' },
+    where: { email: 'admin@silsila.app' },
     update: { passwordHash },
     create: {
-      email: 'admin@trella.app',
+      email: 'admin@silsila.app',
       passwordHash,
       firstName: 'Admin',
       lastName: 'User',
@@ -654,10 +654,10 @@ async function main() {
   })
 
   await prisma.user.upsert({
-    where: { email: 'demand@trella.app' },
+    where: { email: 'demand@silsila.app' },
     update: { passwordHash },
     create: {
-      email: 'demand@trella.app',
+      email: 'demand@silsila.app',
       passwordHash,
       firstName: 'Demand',
       lastName: 'Planner',
@@ -667,10 +667,10 @@ async function main() {
   })
 
   await prisma.user.upsert({
-    where: { email: 'supply@trella.app' },
+    where: { email: 'supply@silsila.app' },
     update: { passwordHash },
     create: {
-      email: 'supply@trella.app',
+      email: 'supply@silsila.app',
       passwordHash,
       firstName: 'Supply',
       lastName: 'Planner',
