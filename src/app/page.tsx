@@ -317,9 +317,9 @@ export default function LandingPage() {
               <h4 className="mb-4 text-sm font-bold text-blue-400">Contact</h4>
               <ul className="space-y-2 text-sm text-slate-400">
                 <li>support@teamtakt.app</li>
-                <li>+1 (234) 567-890</li>
-                <li>123 Supply Chain Ave</li>
-                <li>San Francisco, CA 94102</li>
+                <li>+966 534035184</li>
+                <li>Riyadh</li>
+                <li>Saudi Arabia</li>
               </ul>
             </div>
           </div>
