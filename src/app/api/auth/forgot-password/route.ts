@@ -53,22 +53,25 @@ export async function POST(request: Request) {
       },
     })
 
-    // In a real app, you would send an email here
-    // For now, we'll just log the reset URL
+    // Send password reset email
     const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`
-    console.log('Password reset URL:', resetUrl)
 
-    // TODO: Send email with reset link
-    // await sendEmail({
-    //   to: user.email,
-    //   subject: 'Password Reset Request',
-    //   html: `Click here to reset your password: ${resetUrl}`,
-    // })
+    try {
+      const { sendPasswordResetEmail } = await import('@/lib/email')
+      await sendPasswordResetEmail({
+        to: user.email,
+        firstName: user.firstName,
+        resetUrl,
+      })
+    } catch (emailError) {
+      console.error('Failed to send password reset email:', emailError)
+      // Don't fail the request if email fails - token is still valid
+    }
 
     return NextResponse.json({
       success: true,
       message: 'If an account exists with this email, a password reset link has been sent.',
-      // For development, include the token in response
+      // For development, include the URL in response
       ...(process.env.NODE_ENV === 'development' && { resetUrl }),
     })
   } catch (error) {
