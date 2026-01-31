@@ -311,6 +311,22 @@ model SupplyCommitment {
   @@index([createdById])
 }
 
+// ============ CONTACT FORM ============
+
+model ContactSubmission {
+  id        String   @id @default(cuid())
+  name      String
+  position  String
+  number    String
+  email     String
+  company   String
+  country   String
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([createdAt])
+}
+
 // ============ REDASH DATA INTEGRATION ============
 
 model RedashSync {

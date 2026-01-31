@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { Logo } from '@/components/layout/logo'
+import { ContactForm } from '@/components/contact-form'
 import {
   BarChart3,
   Truck,
@@ -18,6 +19,9 @@ import {
   Globe,
   Lock,
   LineChart,
+  Mail,
+  Phone,
+  MapPin,
 } from 'lucide-react'
 
 export default function LandingPage() {
@@ -246,6 +250,134 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Pricing */}
+      <section id="pricing" className="bg-white py-20 lg:py-28">
+        <div className="container mx-auto px-6">
+          <div className="mb-16 text-center">
+            <h2 className="mb-4 text-4xl font-bold text-slate-900">
+              Simple, Transparent Pricing
+            </h2>
+            <p className="mx-auto max-w-2xl text-lg text-slate-600">
+              Choose the plan that fits your transportation planning needs
+            </p>
+          </div>
+
+          <div className="grid gap-8 lg:grid-cols-3">
+            {/* Starter Plan */}
+            <div className="rounded-2xl border-2 border-slate-200 bg-white p-8 transition-all hover:shadow-xl">
+              <div className="mb-6">
+                <h3 className="mb-2 text-2xl font-bold text-slate-900">Starter</h3>
+                <p className="text-sm text-slate-600">Perfect for small teams getting started</p>
+              </div>
+              <div className="mb-6">
+                <div className="flex items-baseline">
+                  <span className="text-5xl font-bold text-slate-900">$499</span>
+                  <span className="ml-2 text-slate-600">/month</span>
+                </div>
+              </div>
+              <ul className="mb-8 space-y-4">
+                {[
+                  'Up to 5 users',
+                  'Weekly planning cycles',
+                  'Basic demand forecasting',
+                  'Supply commitment tracking',
+                  'Email support',
+                  '1 GB storage',
+                ].map((feature, i) => (
+                  <li key={i} className="flex items-center gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    <span className="text-slate-700">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/register"
+                className="block w-full rounded-lg border-2 border-blue-600 bg-white py-3 text-center font-semibold text-blue-600 transition-colors hover:bg-blue-50"
+              >
+                Start Free Trial
+              </Link>
+            </div>
+
+            {/* Professional Plan */}
+            <div className="relative rounded-2xl border-2 border-blue-600 bg-white p-8 shadow-xl transition-all hover:shadow-2xl">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-blue-600 px-4 py-1 text-sm font-semibold text-white">
+                Most Popular
+              </div>
+              <div className="mb-6">
+                <h3 className="mb-2 text-2xl font-bold text-slate-900">Professional</h3>
+                <p className="text-sm text-slate-600">For growing transportation companies</p>
+              </div>
+              <div className="mb-6">
+                <div className="flex items-baseline">
+                  <span className="text-5xl font-bold text-slate-900">$999</span>
+                  <span className="ml-2 text-slate-600">/month</span>
+                </div>
+              </div>
+              <ul className="mb-8 space-y-4">
+                {[
+                  'Up to 20 users',
+                  'Advanced analytics',
+                  'Multi-route management',
+                  'Actuals tracking & reporting',
+                  'Priority email & chat support',
+                  '10 GB storage',
+                  'API access',
+                  'Custom integrations',
+                ].map((feature, i) => (
+                  <li key={i} className="flex items-center gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    <span className="text-slate-700">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/register"
+                className="block w-full rounded-lg bg-blue-600 py-3 text-center font-semibold text-white transition-colors hover:bg-blue-700"
+              >
+                Start Free Trial
+              </Link>
+            </div>
+
+            {/* Enterprise Plan */}
+            <div className="rounded-2xl border-2 border-slate-200 bg-white p-8 transition-all hover:shadow-xl">
+              <div className="mb-6">
+                <h3 className="mb-2 text-2xl font-bold text-slate-900">Enterprise</h3>
+                <p className="text-sm text-slate-600">For large-scale operations</p>
+              </div>
+              <div className="mb-6">
+                <div className="flex items-baseline">
+                  <span className="text-5xl font-bold text-slate-900">Custom</span>
+                </div>
+              </div>
+              <ul className="mb-8 space-y-4">
+                {[
+                  'Unlimited users',
+                  'Dedicated account manager',
+                  'Custom workflows',
+                  'Advanced security & compliance',
+                  '24/7 phone & email support',
+                  'Unlimited storage',
+                  'Custom API integrations',
+                  'SLA guarantees',
+                  'On-premise deployment option',
+                ].map((feature, i) => (
+                  <li key={i} className="flex items-center gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    <span className="text-slate-700">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="#contact"
+                className="block w-full rounded-lg border-2 border-slate-900 bg-slate-900 py-3 text-center font-semibold text-white transition-colors hover:bg-slate-800"
+              >
+                Contact Sales
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="bg-gradient-to-br from-blue-600 to-blue-700 py-20 text-white">
         <div className="container mx-auto px-6 text-center">
@@ -274,6 +406,73 @@ export default function LandingPage() {
           <p className="mt-8 text-sm text-blue-200">
             Join transportation companies balancing capacity and demand
           </p>
+        </div>
+      </section>
+
+      {/* Contact */}
+      <section id="contact" className="bg-slate-50 py-20 lg:py-28">
+        <div className="container mx-auto px-6">
+          <div className="grid gap-12 lg:grid-cols-2">
+            {/* Contact Info */}
+            <div>
+              <h2 className="mb-6 text-4xl font-bold text-slate-900">
+                Get in Touch
+              </h2>
+              <p className="mb-8 text-lg text-slate-600">
+                Ready to streamline your transportation planning? Fill out the form and our team will reach out to you shortly.
+              </p>
+
+              <div className="space-y-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100">
+                    <Mail className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="mb-1 font-semibold text-slate-900">Email</h3>
+                    <a
+                      href="mailto:support@teamtakt.app"
+                      className="text-slate-600 transition-colors hover:text-blue-600"
+                    >
+                      support@teamtakt.app
+                    </a>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100">
+                    <Phone className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="mb-1 font-semibold text-slate-900">Phone</h3>
+                    <a
+                      href="tel:+966534035184"
+                      className="text-slate-600 transition-colors hover:text-blue-600"
+                    >
+                      +966 534035184
+                    </a>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100">
+                    <MapPin className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="mb-1 font-semibold text-slate-900">Location</h3>
+                    <p className="text-slate-600">
+                      Riyadh, Saudi Arabia
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Form */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-lg">
+              <h3 className="mb-6 text-2xl font-bold text-slate-900">Send us a message</h3>
+              <ContactForm />
+            </div>
+          </div>
         </div>
       </section>
 
