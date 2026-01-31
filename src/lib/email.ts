@@ -5,7 +5,7 @@ const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null
 
-const FROM_EMAIL = process.env.EMAIL_FROM || 'Trella Planning <noreply@trella.app>'
+const FROM_EMAIL = process.env.EMAIL_FROM || 'Silsila <noreply@trella.app>'
 
 interface SendOTPEmailParams {
   to: string
@@ -21,7 +21,7 @@ interface SendPasswordResetEmailParams {
 }
 
 export async function sendPasswordResetEmail({ to, firstName, resetUrl }: SendPasswordResetEmailParams) {
-  const subject = 'Reset your password - Trella Planning'
+  const subject = 'Reset your password - Silsila'
 
   // In development without API key, log the reset URL instead
   if (!resend) {
@@ -48,13 +48,13 @@ export async function sendPasswordResetEmail({ to, firstName, resetUrl }: SendPa
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); padding: 30px; border-radius: 8px 8px 0 0;">
-    <h1 style="color: white; margin: 0; font-size: 24px;">Trella Planning</h1>
+    <h1 style="color: white; margin: 0; font-size: 24px;">Silsila</h1>
   </div>
 
   <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
     <p style="margin-top: 0;">Hi ${firstName},</p>
 
-    <p>We received a request to reset your password for your Trella Planning account.</p>
+    <p>We received a request to reset your password for your Silsila account.</p>
 
     <p>Click the button below to reset your password. This link will expire in 1 hour.</p>
 
@@ -77,7 +77,7 @@ export async function sendPasswordResetEmail({ to, firstName, resetUrl }: SendPa
     </p>
 
     <p style="color: #9ca3af; font-size: 12px; margin-bottom: 0;">
-      Trella Transportation<br>
+      Silsila<br>
       This is an automated message, please do not reply.
     </p>
   </div>
@@ -100,8 +100,8 @@ export async function sendPasswordResetEmail({ to, firstName, resetUrl }: SendPa
 
 export async function sendOTPEmail({ to, firstName, otp, purpose }: SendOTPEmailParams) {
   const subject = purpose === 'verification'
-    ? 'Verify your email - Trella Planning'
-    : 'Your login code - Trella Planning'
+    ? 'Verify your email - Silsila'
+    : 'Your login code - Silsila'
 
   const purposeText = purpose === 'verification'
     ? 'verify your email address'
@@ -133,7 +133,7 @@ export async function sendOTPEmail({ to, firstName, otp, purpose }: SendOTPEmail
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); padding: 30px; border-radius: 8px 8px 0 0;">
-    <h1 style="color: white; margin: 0; font-size: 24px;">Trella Planning</h1>
+    <h1 style="color: white; margin: 0; font-size: 24px;">Silsila</h1>
   </div>
 
   <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
@@ -152,7 +152,7 @@ export async function sendOTPEmail({ to, firstName, otp, purpose }: SendOTPEmail
     <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
 
     <p style="color: #9ca3af; font-size: 12px; margin-bottom: 0;">
-      Trella Transportation<br>
+      Silsila<br>
       This is an automated message, please do not reply.
     </p>
   </div>

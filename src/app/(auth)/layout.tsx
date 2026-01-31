@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth'
-import { Truck } from 'lucide-react'
+import { Logo } from '@/components/layout/logo'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,12 +18,12 @@ export default async function AuthLayout({
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 p-4">
       <div className="mb-8 flex items-center gap-2">
-        <Truck className="h-8 w-8 text-primary" />
-        <span className="text-2xl font-bold">Trella Planning</span>
+        <Logo size="md" />
+        <span className="text-2xl font-bold">Silsila</span>
       </div>
       {children}
       <p className="mt-8 text-sm text-muted-foreground">
-        Trella Transportation &copy; {new Date().getFullYear()}
+        Silsila &copy; {new Date().getFullYear()}
       </p>
     </div>
   )

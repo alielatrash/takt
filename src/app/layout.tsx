@@ -9,8 +9,8 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Trella Planning',
-  description: 'Demand and Supply Planning for Trella Transportation',
+  title: 'Silsila',
+  description: 'Demand and Supply Planning for Transportation',
 }
 
 export default function RootLayout({

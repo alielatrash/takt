@@ -27,7 +27,7 @@ export default function LandingPage() {
         <div className="container mx-auto flex h-20 items-center justify-between px-6">
           <div className="flex items-center gap-2.5">
             <Logo size="md" />
-            <span className="text-xl font-bold text-slate-900">Trella</span>
+            <span className="text-xl font-bold text-slate-900">Silsila</span>
           </div>
           <nav className="hidden items-center gap-8 md:flex">
             <Link href="#features" className="text-sm font-medium text-slate-600 transition-colors hover:text-slate-900">
@@ -277,7 +277,7 @@ export default function LandingPage() {
             <div>
               <div className="mb-4 flex items-center gap-2.5">
                 <Logo size="sm" />
-                <span className="font-bold">Trella</span>
+                <span className="font-bold">Silsila</span>
               </div>
               <p className="text-sm text-slate-400">
                 Weekly demand and supply planning for transportation companies.
@@ -317,7 +317,7 @@ export default function LandingPage() {
               <Link href="#" className="transition-colors hover:text-white">Terms of Service</Link>
               <Link href="#" className="transition-colors hover:text-white">Cookie Policy</Link>
             </div>
-            © {new Date().getFullYear()} Trella Planning. All rights reserved.
+            © {new Date().getFullYear()} Silsila Planning. All rights reserved.
           </div>
         </div>
       </footer>
