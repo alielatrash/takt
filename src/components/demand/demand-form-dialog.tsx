@@ -52,10 +52,10 @@ interface DemandFormDialogProps {
 }
 
 export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast }: DemandFormDialogProps) {
-  // Only fetch data when dialog is open (prevents loading 1,100 records on page load)
-  const { data: clients } = useClients({ isActive: true, pageSize: 500 }, open)
-  const { data: cities } = useCities({ isActive: true, pageSize: 500 }, open)
-  const { data: truckTypes } = useTruckTypes({ isActive: true, pageSize: 100 }, open)
+  // Only fetch data when dialog is open (prevents loading too many records on page load)
+  const { data: clients } = useClients({ isActive: true, pageSize: 10000 }, open)
+  const { data: cities } = useCities({ isActive: true, pageSize: 10000 }, open)
+  const { data: truckTypes } = useTruckTypes({ isActive: true, pageSize: 1000 }, open)
   const createMutation = useCreateDemandForecast()
   const updateMutation = useUpdateDemandForecast()
 

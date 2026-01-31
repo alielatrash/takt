@@ -54,7 +54,7 @@ export const searchParamsSchema = z.object({
   }),
   pageSize: z.string().optional().nullable().transform(v => {
     const num = parseInt(v || '20', 10)
-    return isNaN(num) || num < 1 ? 20 : Math.min(num, 500)
+    return isNaN(num) || num < 1 ? 20 : Math.min(num, 10000)
   }),
   sortBy: z.string().optional().nullable().transform(v => v || 'name'),
   sortOrder: z.string().optional().nullable().transform(v => {

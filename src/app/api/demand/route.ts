@@ -29,21 +29,13 @@ export async function GET(request: Request) {
       ...(citym && { citym }),
     }
 
-    // Run count and data query in parallel
+    // Fetch forecasts without includes first (much faster)
     const [totalCount, forecasts] = await Promise.all([
       prisma.demandForecast.count({ where }),
       prisma.demandForecast.findMany({
         where,
-        include: {
-          client: { select: { id: true, name: true, code: true } },
-          pickupCity: { select: { id: true, name: true, code: true, region: true } },
-          dropoffCity: { select: { id: true, name: true, code: true, region: true } },
-          truckType: { select: { id: true, name: true } },
-          planningWeek: { select: { id: true, weekStart: true, weekEnd: true, year: true, weekNumber: true } },
-          createdBy: { select: { id: true, firstName: true, lastName: true } },
-        },
         orderBy: [
-          { client: { name: 'asc' } },
+          { clientId: 'asc' },
           { citym: 'asc' },
         ],
         skip: (page - 1) * pageSize,
@@ -51,11 +43,81 @@ export async function GET(request: Request) {
       }),
     ])
 
+    if (forecasts.length === 0) {
+      return NextResponse.json({
+        success: true,
+        data: [],
+        pagination: {
+          page,
+          pageSize,
+          totalCount,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        },
+      })
+    }
+
+    // Collect unique IDs for batch fetching
+    const clientIds = [...new Set(forecasts.map(f => f.clientId))]
+    const pickupCityIds = [...new Set(forecasts.map(f => f.pickupCityId))]
+    const dropoffCityIds = [...new Set(forecasts.map(f => f.dropoffCityId))]
+    const truckTypeIds = [...new Set(forecasts.map(f => f.truckTypeId))]
+    const planningWeekIds = [...new Set(forecasts.map(f => f.planningWeekId))]
+    const createdByIds = [...new Set(forecasts.map(f => f.createdById))]
+
+    // Batch fetch all related data in parallel
+    const [clients, pickupCities, dropoffCities, truckTypes, planningWeeks, users] = await Promise.all([
+      prisma.client.findMany({
+        where: { id: { in: clientIds } },
+        select: { id: true, name: true, code: true },
+      }),
+      prisma.city.findMany({
+        where: { id: { in: pickupCityIds } },
+        select: { id: true, name: true, code: true, region: true },
+      }),
+      prisma.city.findMany({
+        where: { id: { in: dropoffCityIds } },
+        select: { id: true, name: true, code: true, region: true },
+      }),
+      prisma.truckType.findMany({
+        where: { id: { in: truckTypeIds } },
+        select: { id: true, name: true },
+      }),
+      prisma.planningWeek.findMany({
+        where: { id: { in: planningWeekIds } },
+        select: { id: true, weekStart: true, weekEnd: true, year: true, weekNumber: true },
+      }),
+      prisma.user.findMany({
+        where: { id: { in: createdByIds } },
+        select: { id: true, firstName: true, lastName: true },
+      }),
+    ])
+
+    // Create lookup maps for O(1) access
+    const clientMap = new Map(clients.map(c => [c.id, c]))
+    const pickupCityMap = new Map(pickupCities.map(c => [c.id, c]))
+    const dropoffCityMap = new Map(dropoffCities.map(c => [c.id, c]))
+    const truckTypeMap = new Map(truckTypes.map(t => [t.id, t]))
+    const planningWeekMap = new Map(planningWeeks.map(w => [w.id, w]))
+    const userMap = new Map(users.map(u => [u.id, u]))
+
+    // Combine data in memory
+    const forecastsWithRelations = forecasts.map(forecast => ({
+      ...forecast,
+      client: clientMap.get(forecast.clientId)!,
+      pickupCity: pickupCityMap.get(forecast.pickupCityId)!,
+      dropoffCity: dropoffCityMap.get(forecast.dropoffCityId)!,
+      truckType: truckTypeMap.get(forecast.truckTypeId)!,
+      planningWeek: planningWeekMap.get(forecast.planningWeekId)!,
+      createdBy: userMap.get(forecast.createdById)!,
+    }))
+
     const totalPages = Math.ceil(totalCount / pageSize)
 
     return NextResponse.json({
       success: true,
-      data: forecasts,
+      data: forecastsWithRelations,
       pagination: {
         page,
         pageSize,

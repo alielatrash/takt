@@ -32,8 +32,13 @@ export default function ClientsPage() {
   const debouncedSearch = useDebounce(search, 300)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<Client | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
 
-  const { data, isLoading } = useClients({ q: debouncedSearch, isActive: true })
+  const { data, isLoading } = useClients({
+    q: debouncedSearch,
+    page: currentPage,
+    pageSize: 50
+  })
   const createMutation = useCreateClient()
   const updateMutation = useUpdateClient()
   const deleteMutation = useDeleteClient()
@@ -57,6 +62,15 @@ export default function ClientsPage() {
       toast.error(error instanceof Error ? error.message : 'Failed to deactivate client')
     }
   }, [deleteMutation])
+
+  const handleSearch = useCallback((query: string) => {
+    setSearch(query)
+    setCurrentPage(1) // Reset to first page when searching
+  }, [])
+
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page)
+  }, [])
 
   const handleSubmit = async (formData: { name: string; code?: string }) => {
     try {
@@ -85,11 +99,13 @@ export default function ClientsPage() {
         columns={columns}
         isLoading={isLoading}
         searchPlaceholder="Search clients..."
-        onSearch={setSearch}
+        onSearch={handleSearch}
         onAdd={handleAdd}
         onEdit={handleEdit}
         onDelete={handleDelete}
         addButtonLabel="Add Client"
+        pagination={data?.meta}
+        onPageChange={handlePageChange}
       />
 
       <EntityFormDialog

@@ -134,8 +134,50 @@ export function useUpdateDemandForecast() {
       if (!result.success) throw new Error(result.error?.message || 'Update failed')
       return result.data
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['demandForecasts'] })
+    // Optimistic update - update cache immediately without refetch
+    onMutate: async ({ id, ...data }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['demandForecasts'] })
+
+      // Get all demand forecast queries in cache
+      const queries = queryClient.getQueriesData<DemandForecastsResponse>({ queryKey: ['demandForecasts'] })
+
+      // Update each query's cache
+      queries.forEach(([queryKey, oldData]) => {
+        if (oldData?.data) {
+          const updatedData = oldData.data.map((forecast) => {
+            if (forecast.id === id) {
+              // Calculate new total
+              const day1 = data.day1Loads ?? forecast.day1Loads
+              const day2 = data.day2Loads ?? forecast.day2Loads
+              const day3 = data.day3Loads ?? forecast.day3Loads
+              const day4 = data.day4Loads ?? forecast.day4Loads
+              const day5 = data.day5Loads ?? forecast.day5Loads
+              const day6 = data.day6Loads ?? forecast.day6Loads
+              const day7 = data.day7Loads ?? forecast.day7Loads
+              const totalLoads = day1 + day2 + day3 + day4 + day5 + day6 + day7
+
+              return { ...forecast, ...data, totalLoads, updatedAt: new Date() }
+            }
+            return forecast
+          })
+
+          queryClient.setQueryData(queryKey, {
+            ...oldData,
+            data: updatedData,
+          })
+        }
+      })
+
+      return { queries }
+    },
+    // If mutation fails, rollback
+    onError: (err, variables, context) => {
+      if (context?.queries) {
+        context.queries.forEach(([queryKey, oldData]) => {
+          queryClient.setQueryData(queryKey, oldData)
+        })
+      }
     },
   })
 }

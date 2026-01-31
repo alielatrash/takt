@@ -50,7 +50,7 @@ const actionColors: Record<string, string> = {
 
 export default function AuditLogPage() {
   const [page, setPage] = useState(1)
-  const [actionFilter, setActionFilter] = useState<string>('')
+  const [actionFilter, setActionFilter] = useState<string>('ALL')
   const limit = 20
 
   const { data, isLoading } = useQuery({
@@ -60,7 +60,7 @@ export default function AuditLogPage() {
         page: page.toString(),
         limit: limit.toString(),
       })
-      if (actionFilter) params.set('action', actionFilter)
+      if (actionFilter && actionFilter !== 'ALL') params.set('action', actionFilter)
 
       const res = await fetch(`/api/admin/audit?${params.toString()}`)
       const json = await res.json()
@@ -80,7 +80,7 @@ export default function AuditLogPage() {
             <SelectValue placeholder="All actions" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All actions</SelectItem>
+            <SelectItem value="ALL">All actions</SelectItem>
             <SelectItem value="CREATE">Create</SelectItem>
             <SelectItem value="UPDATE">Update</SelectItem>
             <SelectItem value="DELETE">Delete</SelectItem>

@@ -17,7 +17,7 @@ export function AppShell({ children, user }: AppShellProps) {
       <DataPrefetcher />
       <DatabaseKeepAlive />
       <Sidebar userRole={user?.role} user={user} />
-      <div className="ml-16">
+      <div className="ml-16 min-h-screen" style={{ backgroundColor: '#f9f9fa' }}>
         <main className="p-6">{children}</main>
       </div>
     </div>

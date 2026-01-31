@@ -81,9 +81,24 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       )
     }
 
+    // Fetch only necessary fields for validation and calculation
     const existing = await prisma.demandForecast.findUnique({
       where: { id },
-      include: { planningWeek: true },
+      select: {
+        id: true,
+        day1Loads: true,
+        day2Loads: true,
+        day3Loads: true,
+        day4Loads: true,
+        day5Loads: true,
+        day6Loads: true,
+        day7Loads: true,
+        planningWeekId: true,
+        clientId: true,
+        planningWeek: {
+          select: { isLocked: true },
+        },
+      },
     })
 
     if (!existing) {
@@ -112,29 +127,33 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const day7 = data.day7Loads ?? existing.day7Loads
     const totalLoads = day1 + day2 + day3 + day4 + day5 + day6 + day7
 
+    // Update without expensive includes - frontend will refetch via cache invalidation
     const forecast = await prisma.demandForecast.update({
       where: { id },
       data: {
         ...data,
         totalLoads,
       },
-      include: {
-        client: { select: { id: true, name: true, code: true } },
-        pickupCity: { select: { id: true, name: true, code: true, region: true } },
-        dropoffCity: { select: { id: true, name: true, code: true, region: true } },
-        truckType: { select: { id: true, name: true } },
-        planningWeek: { select: { id: true, weekStart: true, weekEnd: true } },
-        createdBy: { select: { id: true, firstName: true, lastName: true } },
+      select: {
+        id: true,
+        planningWeekId: true,
+        clientId: true,
+        totalLoads: true,
+        updatedAt: true,
       },
     })
 
-    // Create audit log asynchronously (don't block the response)
+    // Create audit log asynchronously with minimal metadata
     createAuditLog({
       userId: session.user.id,
       action: AuditAction.DEMAND_UPDATED,
       entityType: 'DemandForecast',
       entityId: forecast.id,
-      metadata: { before: existing, after: forecast },
+      metadata: {
+        clientId: existing.clientId,
+        planningWeekId: existing.planningWeekId,
+        changes: data,
+      },
     }).catch((err) => console.error('Failed to create audit log:', err))
 
     return NextResponse.json({ success: true, data: forecast })

@@ -70,7 +70,14 @@ export function Combobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
+        <Command
+          filter={(value, search) => {
+            // Custom filter: exact substring match (case-insensitive)
+            const searchLower = search.toLowerCase()
+            const valueLower = value.toLowerCase()
+            return valueLower.includes(searchLower) ? 1 : 0
+          }}
+        >
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
@@ -79,6 +86,7 @@ export function Combobox({
                 <CommandItem
                   key={option.value}
                   value={option.label}
+                  keywords={[option.label, option.description || '']}
                   onSelect={() => {
                     onValueChange?.(option.value)
                     setOpen(false)

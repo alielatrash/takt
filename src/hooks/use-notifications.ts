@@ -26,8 +26,9 @@ export function useNotifications() {
       if (!json.success) throw new Error(json.error?.message || 'Failed to fetch notifications')
       return json.data
     },
-    refetchInterval: 5000, // Refetch every 5 seconds for near real-time updates
-    staleTime: 0, // Always consider data stale so it refetches on window focus
+    refetchInterval: 30000, // Refetch every 30 seconds (reduced from 5s)
+    staleTime: 25000, // Consider data fresh for 25 seconds
+    refetchOnWindowFocus: false, // Don't refetch on every focus
   })
 }
 

@@ -20,11 +20,19 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Pagination } from '@/components/ui/pagination'
 
 interface Column<T> {
   key: keyof T | string
   label: string
   render?: (item: T) => React.ReactNode
+}
+
+interface PaginationMeta {
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
 }
 
 interface RepositoryTableProps<T extends { id: string; isActive?: boolean }> {
@@ -37,6 +45,8 @@ interface RepositoryTableProps<T extends { id: string; isActive?: boolean }> {
   onEdit: (item: T) => void
   onDelete: (item: T) => void
   addButtonLabel?: string
+  pagination?: PaginationMeta
+  onPageChange?: (page: number) => void
 }
 
 export function RepositoryTable<T extends { id: string; isActive?: boolean }>({
@@ -49,6 +59,8 @@ export function RepositoryTable<T extends { id: string; isActive?: boolean }>({
   onEdit,
   onDelete,
   addButtonLabel = 'Add New',
+  pagination,
+  onPageChange,
 }: RepositoryTableProps<T>) {
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -151,6 +163,15 @@ export function RepositoryTable<T extends { id: string; isActive?: boolean }>({
             )}
           </TableBody>
         </Table>
+        {pagination && onPageChange && (
+          <Pagination
+            currentPage={pagination.page}
+            totalPages={pagination.totalPages}
+            onPageChange={onPageChange}
+            totalItems={pagination.total}
+            pageSize={pagination.pageSize}
+          />
+        )}
       </div>
     </div>
   )

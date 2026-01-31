@@ -32,8 +32,13 @@ export default function SuppliersPage() {
   const debouncedSearch = useDebounce(search, 300)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<Supplier | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
 
-  const { data, isLoading } = useSuppliers({ q: debouncedSearch, isActive: true })
+  const { data, isLoading } = useSuppliers({
+    q: debouncedSearch,
+    page: currentPage,
+    pageSize: 50
+  })
   const createMutation = useCreateSupplier()
   const updateMutation = useUpdateSupplier()
   const deleteMutation = useDeleteSupplier()
@@ -57,6 +62,15 @@ export default function SuppliersPage() {
       toast.error(error instanceof Error ? error.message : 'Failed to deactivate supplier')
     }
   }, [deleteMutation])
+
+  const handleSearch = useCallback((query: string) => {
+    setSearch(query)
+    setCurrentPage(1) // Reset to first page when searching
+  }, [])
+
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page)
+  }, [])
 
   const handleSubmit = async (formData: { name: string; code?: string }) => {
     try {
@@ -85,11 +99,13 @@ export default function SuppliersPage() {
         columns={columns}
         isLoading={isLoading}
         searchPlaceholder="Search suppliers..."
-        onSearch={setSearch}
+        onSearch={handleSearch}
         onAdd={handleAdd}
         onEdit={handleEdit}
         onDelete={handleDelete}
         addButtonLabel="Add Supplier"
+        pagination={data?.meta}
+        onPageChange={handlePageChange}
       />
 
       <EntityFormDialog

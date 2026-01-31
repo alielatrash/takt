@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
@@ -83,8 +83,14 @@ export function Sidebar({ userRole, user }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const { data: notificationsData } = useNotifications()
   const markReadMutation = useMarkNotificationsRead()
+
+  // Fix hydration mismatch with Radix UI IDs
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const canAccess = (item: NavItem) => {
     if (!item.roles) return true
@@ -121,14 +127,14 @@ export function Sidebar({ userRole, user }: SidebarProps) {
 
   return (
     <TooltipProvider delayDuration={0}>
-      <aside className="fixed left-0 top-0 z-40 flex h-screen w-16 flex-col items-center border-r bg-background py-4" suppressHydrationWarning>
+      <aside className="fixed left-0 top-0 z-40 flex h-screen w-16 flex-col items-center border-r bg-background py-6" suppressHydrationWarning>
         {/* Logo */}
-        <Link href="/dashboard" className="mb-6">
+        <Link href="/dashboard">
           <Logo size="md" />
         </Link>
 
         {/* Navigation Icons */}
-        <nav className="flex flex-1 flex-col items-center gap-1 overflow-y-auto">
+        <nav className="slim-scrollbar flex flex-1 flex-col items-center gap-3 overflow-y-auto py-2">
           {accessibleItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
             const Icon = item.icon
@@ -139,7 +145,7 @@ export function Sidebar({ userRole, user }: SidebarProps) {
                   <Link
                     href={item.href}
                     className={cn(
-                      'group relative flex h-12 w-12 items-center justify-center rounded-lg transition-all',
+                      'group relative flex h-11 w-11 items-center justify-center rounded-lg py-2.5 transition-all',
                       isActive
                         ? 'bg-primary/10 text-primary'
                         : 'text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -147,7 +153,7 @@ export function Sidebar({ userRole, user }: SidebarProps) {
                   >
                     <Icon className="h-5 w-5" />
                     {isActive && (
-                      <div className="absolute left-0 h-8 w-1 rounded-r-full bg-primary" />
+                      <div className="absolute left-0 h-7 w-1 rounded-r-full bg-primary" />
                     )}
                   </Link>
                 </TooltipTrigger>
@@ -162,11 +168,12 @@ export function Sidebar({ userRole, user }: SidebarProps) {
         {/* Quick Create Button */}
         {(canCreateDemand || canCreateSupply) && (
           <>
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   onClick={() => setCreateDialogOpen(true)}
-                  className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-md transition-all hover:bg-primary/90"
+                  className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg transition-all hover:bg-primary/90 hover:shadow-xl"
                 >
                   <Plus className="h-6 w-6" />
                 </button>
@@ -228,7 +235,7 @@ export function Sidebar({ userRole, user }: SidebarProps) {
         )}
 
         {/* Notifications */}
-        <DropdownMenu>
+        {mounted && <DropdownMenu>
           <Tooltip>
             <TooltipTrigger asChild>
               <DropdownMenuTrigger asChild>
@@ -294,10 +301,10 @@ export function Sidebar({ userRole, user }: SidebarProps) {
               )}
             </ScrollArea>
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu>}
 
         {/* User Profile with Online Indicator */}
-        {user && (
+        {mounted && user && (
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
