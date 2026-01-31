@@ -35,9 +35,7 @@ const userFormSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   mobileNumber: z.string().optional(),
-  role: z.enum(['DEMAND_PLANNER', 'SUPPLY_PLANNER', 'ADMIN'], {
-    required_error: 'Please select a role',
-  }),
+  role: z.enum(['DEMAND_PLANNER', 'SUPPLY_PLANNER', 'ADMIN']),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 })
 
