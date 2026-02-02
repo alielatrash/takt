@@ -25,7 +25,7 @@ export const registerSchema = z.object({
       (val) => !val || /^\+?[1-9]\d{7,14}$/.test(val),
       'Invalid mobile number format'
     ),
-  role: z.enum(['DEMAND_PLANNER', 'SUPPLY_PLANNER', 'ADMIN'], {
+  role: z.enum(['DEMAND_PLANNER', 'SUPPLY_PLANNER'], {
     message: 'Please select a valid role',
   }).optional(),
   organizationName: z

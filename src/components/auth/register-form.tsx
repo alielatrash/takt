@@ -181,7 +181,6 @@ export function RegisterForm() {
                 <SelectContent>
                   <SelectItem value="DEMAND_PLANNER">Demand Planner</SelectItem>
                   <SelectItem value="SUPPLY_PLANNER">Supply Planner</SelectItem>
-                  <SelectItem value="ADMIN">Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>
