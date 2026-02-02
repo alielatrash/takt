@@ -38,6 +38,7 @@ import { WEEK_DAYS } from '@/types'
 import type { DemandForecast, Party, Location, ResourceType } from '@prisma/client'
 import { format, addWeeks, startOfMonth } from 'date-fns'
 import { ClientQuickCreateDialog } from '@/components/repositories/client-quick-create-dialog'
+import { CityQuickCreateDialog } from '@/components/repositories/city-quick-create-dialog'
 
 const MONTH_WEEKS = [
   { key: 'week1', label: 'Week 1' },
@@ -62,6 +63,8 @@ interface DemandFormDialogProps {
 
 export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast }: DemandFormDialogProps) {
   const [isClientDialogOpen, setIsClientDialogOpen] = useState(false)
+  const [isPickupCityDialogOpen, setIsPickupCityDialogOpen] = useState(false)
+  const [isDropoffCityDialogOpen, setIsDropoffCityDialogOpen] = useState(false)
 
   // Only fetch data when dialog is open (prevents loading too many records on page load)
   const { data: clients } = useClients({ isActive: true, pageSize: 10000 }, open)
@@ -307,6 +310,18 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
                         placeholder="Search city..."
                         searchPlaceholder="Type to search..."
                         emptyText="No cities found."
+                        footerAction={
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start text-xs"
+                            onClick={() => setIsPickupCityDialogOpen(true)}
+                          >
+                            <Plus className="mr-2 h-3 w-3" />
+                            Add new city
+                          </Button>
+                        }
                       />
                     </FormControl>
                     <FormMessage />
@@ -328,6 +343,18 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
                         placeholder="Search city..."
                         searchPlaceholder="Type to search..."
                         emptyText="No cities found."
+                        footerAction={
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start text-xs"
+                            onClick={() => setIsDropoffCityDialogOpen(true)}
+                          >
+                            <Plus className="mr-2 h-3 w-3" />
+                            Add new city
+                          </Button>
+                        }
                       />
                     </FormControl>
                     <FormMessage />
@@ -438,6 +465,24 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
         onSuccess={(client) => {
           form.setValue('clientId', client.id)
           toast.success(`Client "${client.name}" selected`)
+        }}
+      />
+
+      <CityQuickCreateDialog
+        open={isPickupCityDialogOpen}
+        onOpenChange={setIsPickupCityDialogOpen}
+        onSuccess={(city) => {
+          form.setValue('pickupCityId', city.id)
+          toast.success(`City "${city.name}" selected for pickup`)
+        }}
+      />
+
+      <CityQuickCreateDialog
+        open={isDropoffCityDialogOpen}
+        onOpenChange={setIsDropoffCityDialogOpen}
+        onSuccess={(city) => {
+          form.setValue('dropoffCityId', city.id)
+          toast.success(`City "${city.name}" selected for dropoff`)
         }}
       />
     </Dialog>
