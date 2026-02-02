@@ -41,7 +41,8 @@
       "Bash(npx ts-node:*)",
       "Bash(node /tmp/check-db.mjs:*)",
       "Bash(node check-db.mjs:*)",
-      "Bash(npm run db:push:*)"
+      "Bash(npm run db:push:*)",
+      "Bash(find:*)"
     ]
   }
 }
