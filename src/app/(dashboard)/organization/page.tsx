@@ -24,6 +24,17 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Textarea } from '@/components/ui/textarea'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -80,6 +91,9 @@ export default function OrganizationSettingsPage() {
   const [addDomainDialogOpen, setAddDomainDialogOpen] = useState(false)
   const [inviteMemberDialogOpen, setInviteMemberDialogOpen] = useState(false)
   const [editLabelsDialogOpen, setEditLabelsDialogOpen] = useState(false)
+  const [removeMemberDialogOpen, setRemoveMemberDialogOpen] = useState(false)
+  const [selectedMember, setSelectedMember] = useState<any>(null)
+  const [removeReason, setRemoveReason] = useState('')
 
   // Label settings state
   const [labels, setLabels] = useState({
@@ -168,6 +182,21 @@ export default function OrganizationSettingsPage() {
       })
     }
     setEditLabelsDialogOpen(true)
+  }
+
+  const handleRemoveMember = () => {
+    if (!selectedMember) return
+    removeMember.mutate(selectedMember.id, {
+      onSuccess: () => {
+        setRemoveMemberDialogOpen(false)
+        setSelectedMember(null)
+        setRemoveReason('')
+        toast.success('Member removed successfully')
+      },
+      onError: () => {
+        toast.error('Failed to remove member')
+      },
+    })
   }
 
   if (orgLoading) {
@@ -881,7 +910,10 @@ export default function OrganizationSettingsPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => removeMember.mutate(member.id)}
+                              onClick={() => {
+                                setSelectedMember(member)
+                                setRemoveMemberDialogOpen(true)
+                              }}
                               disabled={member.role === 'OWNER' && !isOwner}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -897,6 +929,49 @@ export default function OrganizationSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Remove Member Confirmation Dialog */}
+      <AlertDialog open={removeMemberDialogOpen} onOpenChange={setRemoveMemberDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Member</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove{' '}
+              <span className="font-semibold">
+                {selectedMember?.user?.firstName} {selectedMember?.user?.lastName}
+              </span>{' '}
+              ({selectedMember?.user?.email}) from the organization? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <label className="text-sm font-medium mb-2 block">
+              Reason (optional)
+            </label>
+            <Textarea
+              placeholder="Enter reason for removing this member..."
+              value={removeReason}
+              onChange={(e) => setRemoveReason(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setRemoveMemberDialogOpen(false)
+              setSelectedMember(null)
+              setRemoveReason('')
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRemoveMember}
+              disabled={removeMember.isPending}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {removeMember.isPending ? 'Removing...' : 'Remove Member'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
