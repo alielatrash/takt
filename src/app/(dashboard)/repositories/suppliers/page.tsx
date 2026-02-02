@@ -34,7 +34,7 @@ const formFields = [
   { name: 'name', label: 'Name', placeholder: 'Enter supplier name (e.g., WLS, MOMENTUM)', required: true },
   { name: 'pointOfContact', label: 'Point of Contact', placeholder: 'Enter contact person name (optional)' },
   { name: 'phoneNumber', label: 'Phone Number', placeholder: 'Enter contact phone (optional)', type: 'phone' as const },
-  { name: 'capacity', label: 'Capacity', type: 'number', placeholder: 'Enter total capacity (e.g., 100 trucks)' },
+  { name: 'capacity', label: 'Capacity', type: 'number' as const, placeholder: 'Enter total capacity (e.g., 100 trucks)' },
   { name: 'capacityType', label: 'Capacity Type', placeholder: 'Enter capacity type (e.g., Curtainside Truck, Flatbed)' },
 ]
 
