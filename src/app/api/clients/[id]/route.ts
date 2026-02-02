@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { createAuditLog, AuditAction } from '@/lib/audit'
 import { updateClientSchema } from '@/lib/validations/repositories'
+import { orgScopedWhere, verifyOrgOwnership } from '@/lib/org-scoped'
+import { PartyRole } from '@prisma/client'
 
 type RouteParams = { params: Promise<{ id: string }> }
 
@@ -17,9 +19,18 @@ export async function GET(request: Request, { params }: RouteParams) {
     }
 
     const { id } = await params
-    const client = await prisma.client.findUnique({ where: { id } })
+    const client = await prisma.party.findUnique({ where: { id } })
 
     if (!client) {
+      return NextResponse.json(
+        { success: false, error: { code: 'NOT_FOUND', message: 'Client not found' } },
+        { status: 404 }
+      )
+    }
+
+    // Verify ownership and party role
+    verifyOrgOwnership(session, client)
+    if (client.partyRole !== PartyRole.CUSTOMER) {
       return NextResponse.json(
         { success: false, error: { code: 'NOT_FOUND', message: 'Client not found' } },
         { status: 404 }
@@ -64,7 +75,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       )
     }
 
-    const existing = await prisma.client.findUnique({ where: { id } })
+    const existing = await prisma.party.findUnique({ where: { id } })
     if (!existing) {
       return NextResponse.json(
         { success: false, error: { code: 'NOT_FOUND', message: 'Client not found' } },
@@ -72,42 +83,53 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       )
     }
 
-    const { name, code } = validationResult.data
+    // Verify ownership and party role
+    verifyOrgOwnership(session, existing)
+    if (existing.partyRole !== PartyRole.CUSTOMER) {
+      return NextResponse.json(
+        { success: false, error: { code: 'NOT_FOUND', message: 'Client not found' } },
+        { status: 404 }
+      )
+    }
 
-    // Check for duplicates (excluding current record)
-    if (name || code) {
-      const duplicate = await prisma.client.findFirst({
-        where: {
+    const { name, pointOfContact, phoneNumber } = validationResult.data
+
+    // Check for duplicates within organization (excluding current record)
+    if (name) {
+      const duplicate = await prisma.party.findFirst({
+        where: orgScopedWhere(session, {
           id: { not: id },
-          OR: [
-            ...(name ? [{ name: { equals: name, mode: 'insensitive' as const } }] : []),
-            ...(code ? [{ code: { equals: code, mode: 'insensitive' as const } }] : []),
-          ],
-        },
+          partyRole: PartyRole.CUSTOMER,
+          name: { equals: name, mode: 'insensitive' },
+        }),
       })
 
       if (duplicate) {
         return NextResponse.json(
           {
             success: false,
-            error: { code: 'DUPLICATE', message: 'A client with this name or code already exists' },
+            error: { code: 'DUPLICATE', message: 'A client with this name already exists' },
           },
           { status: 409 }
         )
       }
     }
 
-    const client = await prisma.client.update({
+    const client = await prisma.party.update({
       where: { id },
-      data: validationResult.data,
+      data: {
+        ...(name !== undefined && { name }),
+        ...(pointOfContact !== undefined && { pointOfContact }),
+        ...(phoneNumber !== undefined && { phoneNumber }),
+      },
     })
 
     await createAuditLog({
       userId: session.user.id,
       action: AuditAction.CLIENT_UPDATED,
-      entityType: 'Client',
+      entityType: 'Party',
       entityId: client.id,
-      metadata: { before: existing, after: client },
+      metadata: { before: existing, after: client, partyRole: 'CUSTOMER' },
     })
 
     return NextResponse.json({ success: true, data: client })
@@ -131,7 +153,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     }
 
     const { id } = await params
-    const existing = await prisma.client.findUnique({ where: { id } })
+    const existing = await prisma.party.findUnique({ where: { id } })
 
     if (!existing) {
       return NextResponse.json(
@@ -140,8 +162,17 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       )
     }
 
+    // Verify ownership and party role
+    verifyOrgOwnership(session, existing)
+    if (existing.partyRole !== PartyRole.CUSTOMER) {
+      return NextResponse.json(
+        { success: false, error: { code: 'NOT_FOUND', message: 'Client not found' } },
+        { status: 404 }
+      )
+    }
+
     // Soft delete by setting isActive to false
-    const client = await prisma.client.update({
+    const client = await prisma.party.update({
       where: { id },
       data: { isActive: false },
     })
@@ -149,9 +180,9 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     await createAuditLog({
       userId: session.user.id,
       action: AuditAction.CLIENT_DELETED,
-      entityType: 'Client',
+      entityType: 'Party',
       entityId: client.id,
-      metadata: { name: existing.name },
+      metadata: { name: existing.name, partyRole: 'CUSTOMER' },
     })
 
     return NextResponse.json({ success: true, data: { message: 'Client deactivated' } })

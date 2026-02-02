@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { getUpcomingWeeks, formatWeekDisplay } from '@/lib/planning-week'
+import { orgScopedWhere } from '@/lib/org-scoped'
 
 export async function GET(request: Request) {
   try {
@@ -16,7 +17,15 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const count = parseInt(searchParams.get('count') || '8', 10)
 
-    const weeks = await getUpcomingWeeks(count)
+    // Get organization settings to determine planning cycle
+    const orgSettings = await prisma.organizationSettings.findUnique({
+      where: { organizationId: session.user.currentOrgId },
+    })
+
+    const planningCycle = orgSettings?.planningCycle || 'DAILY'
+
+    // Get upcoming weeks with org scoping
+    const weeks = await getUpcomingWeeks(count, session.user.currentOrgId)
 
     const formattedWeeks = weeks.map(week => ({
       ...week,
@@ -26,6 +35,9 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       data: formattedWeeks,
+      meta: {
+        planningCycle,
+      },
     })
   } catch (error) {
     console.error('Get planning weeks error:', error)

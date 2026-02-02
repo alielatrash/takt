@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { contactFormSchema, type ContactFormInput } from '@/lib/validations/contact'
@@ -19,6 +19,11 @@ import { Loader2 } from 'lucide-react'
 
 export function ContactForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const form = useForm<ContactFormInput>({
     resolver: zodResolver(contactFormSchema),
@@ -56,6 +61,23 @@ export function ContactForm() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // Prevent hydration mismatch by only rendering form on client
+  if (!mounted) {
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-6 sm:grid-cols-2">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="space-y-2">
+              <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+              <div className="h-10 w-full bg-gray-100 rounded animate-pulse" />
+            </div>
+          ))}
+        </div>
+        <div className="h-10 w-full bg-blue-600 rounded animate-pulse" />
+      </div>
+    )
   }
 
   return (

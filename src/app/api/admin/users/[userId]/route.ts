@@ -32,14 +32,19 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       )
     }
 
-    // Check if user exists
-    const existingUser = await prisma.user.findUnique({
-      where: { id: userId },
+    // Check if user exists and belongs to current organization
+    const membership = await prisma.organizationMember.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId: session.user.currentOrgId,
+          userId,
+        },
+      },
     })
 
-    if (!existingUser) {
+    if (!membership) {
       return NextResponse.json(
-        { success: false, error: { code: 'NOT_FOUND', message: 'User not found' } },
+        { success: false, error: { code: 'NOT_FOUND', message: 'User not found in current organization' } },
         { status: 404 }
       )
     }

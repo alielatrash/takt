@@ -83,6 +83,25 @@ export default function UsersAdminPage() {
     },
   })
 
+  const inviteUserMutation = useMutation({
+    mutationFn: async (inviteData: { email: string; role: string }) => {
+      const res = await fetch('/api/admin/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(inviteData),
+      })
+      const json = await res.json()
+      if (!json.success) throw new Error(json.error?.message || 'Failed to send invitation')
+      return json.data
+    },
+    onSuccess: () => {
+      toast.success('Invitation sent successfully')
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to send invitation')
+    },
+  })
+
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
       const res = await fetch(`/api/admin/users/${userId}`, {
@@ -127,6 +146,10 @@ export default function UsersAdminPage() {
 
   const handleCreateUser = async (userData: any) => {
     await createUserMutation.mutateAsync(userData)
+  }
+
+  const handleInviteUser = async (inviteData: any) => {
+    await inviteUserMutation.mutateAsync(inviteData)
   }
 
   const handleDeleteUser = async (userId: string, userName: string) => {
@@ -271,6 +294,7 @@ export default function UsersAdminPage() {
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         onSubmit={handleCreateUser}
+        onInvite={handleInviteUser}
       />
     </div>
   )

@@ -1,7 +1,7 @@
-import type { User, UserRole } from '@prisma/client'
+import type { User, UserRole, OrgRole } from '@prisma/client'
 
 // Re-export Prisma types
-export type { User, UserRole } from '@prisma/client'
+export type { User, UserRole, OrgRole } from '@prisma/client'
 
 // Session types
 export interface SessionUser {
@@ -11,6 +11,9 @@ export interface SessionUser {
   lastName: string
   role: UserRole
   avatarUrl?: string | null
+  currentOrgId: string
+  currentOrgRole: OrgRole
+  currentOrgName: string
 }
 
 export interface Session {

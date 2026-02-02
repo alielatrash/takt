@@ -20,6 +20,7 @@ import {
   User,
   LogOut,
   Bell,
+  Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Logo } from './logo'
@@ -69,6 +70,7 @@ const navigation: NavItem[] = [
   { title: 'Truck Types', href: '/repositories/truck-types', icon: Truck },
   { title: 'Forecast Accuracy', href: '/reports/accuracy', icon: BarChart3 },
   { title: 'Vendor Performance', href: '/reports/performance', icon: FileText },
+  { title: 'Organization', href: '/organization', icon: Settings, roles: ['ADMIN'] },
   { title: 'Users', href: '/admin/users', icon: Users, roles: ['ADMIN'] },
   { title: 'Audit Log', href: '/admin/audit', icon: CalendarDays, roles: ['ADMIN'] },
   { title: 'Data Sync', href: '/admin/sync', icon: RefreshCw, roles: ['ADMIN'] },

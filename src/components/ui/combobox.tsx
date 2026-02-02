@@ -33,6 +33,7 @@ interface ComboboxProps {
   emptyText?: string
   disabled?: boolean
   className?: string
+  footerAction?: React.ReactNode
 }
 
 export function Combobox({
@@ -44,6 +45,7 @@ export function Combobox({
   emptyText = 'No results found.',
   disabled,
   className,
+  footerAction,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
 
@@ -109,6 +111,11 @@ export function Combobox({
                 </CommandItem>
               ))}
             </CommandGroup>
+            {footerAction && (
+              <div className="border-t p-2">
+                {footerAction}
+              </div>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>

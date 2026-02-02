@@ -30,7 +30,7 @@ interface DispatchTableProps {
 type DayTotals = { day1: number; day2: number; day3: number; day4: number; day5: number; day6: number; day7: number; total: number }
 
 interface RouteGrouped {
-  citym: string
+  routeKey: string
   suppliers: Array<{
     supplierId: string
     supplierName: string
@@ -67,15 +67,15 @@ export function DispatchTable({ data, isLoading, weekStart }: DispatchTableProps
 
     for (const supplier of data.suppliers) {
       for (const route of supplier.routes) {
-        if (!routeMap.has(route.citym)) {
-          routeMap.set(route.citym, {
-            citym: route.citym,
+        if (!routeMap.has(route.routeKey)) {
+          routeMap.set(route.routeKey, {
+            routeKey: route.routeKey,
             suppliers: [],
             totals: { day1: 0, day2: 0, day3: 0, day4: 0, day5: 0, day6: 0, day7: 0, total: 0 },
           })
         }
 
-        const routeGroup = routeMap.get(route.citym)!
+        const routeGroup = routeMap.get(route.routeKey)!
         routeGroup.suppliers.push({
           supplierId: supplier.supplierId,
           supplierName: supplier.supplierName,
@@ -94,8 +94,30 @@ export function DispatchTable({ data, isLoading, weekStart }: DispatchTableProps
       }
     }
 
-    return Array.from(routeMap.values()).sort((a, b) => a.citym.localeCompare(b.citym))
+    return Array.from(routeMap.values()).sort((a, b) => a.routeKey.localeCompare(b.routeKey))
   }, [data])
+
+  // Render Grand Total Row
+  const renderGrandTotalRow = () => {
+    if (!data) return null
+    return (
+      <TableRow key="grand-total" className="bg-[#4a7c59] hover:bg-[#4a7c59] font-bold">
+        <TableCell className="text-white"></TableCell>
+        <TableCell className="text-white font-bold">GRAND TOTAL</TableCell>
+        {WEEK_DAYS.map((day, index) => {
+          const key = `day${index + 1}` as keyof typeof data.grandTotals
+          return (
+            <TableCell key={day.key} className="text-center text-white font-bold">
+              {data.grandTotals[key]}
+            </TableCell>
+          )
+        })}
+        <TableCell className="text-center text-white font-bold">
+          {data.grandTotals.total}
+        </TableCell>
+      </TableRow>
+    )
+  }
 
   if (isLoading) {
     return (
@@ -173,158 +195,142 @@ export function DispatchTable({ data, isLoading, weekStart }: DispatchTableProps
             </TableRow>
           </TableHeader>
           <TableBody>
-            {groupBy === 'supplier' ? (
-              // Group by Supplier view
-              data.suppliers.map((supplier) => {
-                const isExpanded = expandedRows.has(supplier.supplierId)
+            <>
+              {groupBy === 'supplier'
+                ? data.suppliers.map((supplier) => {
+                    const isExpanded = expandedRows.has(supplier.supplierId)
 
-                return (
-                  <React.Fragment key={supplier.supplierId}>
-                    {/* Supplier Total Row */}
-                    <TableRow className="font-medium cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(supplier.supplierId)}>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={(e) => { e.stopPropagation(); toggleRow(supplier.supplierId) }}
-                        >
-                          {isExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </TableCell>
-                      <TableCell className="font-semibold">
-                        {supplier.supplierName}
-                        <span className="text-xs text-muted-foreground ml-2">
-                          ({supplier.routes.length} {supplier.routes.length === 1 ? 'route' : 'routes'})
-                        </span>
-                      </TableCell>
-                      {WEEK_DAYS.map((day, index) => {
-                        const key = `day${index + 1}` as keyof typeof supplier.totals
-                        const value = supplier.totals[key]
-                        return (
-                          <TableCell key={day.key} className={cn("text-center", value > 0 && "font-medium")}>
-                            {value || ''}
+                    return (
+                      <React.Fragment key={supplier.supplierId}>
+                        {/* Supplier Total Row */}
+                        <TableRow className="font-medium cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(supplier.supplierId)}>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={(e) => { e.stopPropagation(); toggleRow(supplier.supplierId) }}
+                            >
+                              {isExpanded ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </Button>
                           </TableCell>
-                        )
-                      })}
-                      <TableCell className="text-center font-bold">
-                        {supplier.totals.total}
-                      </TableCell>
-                    </TableRow>
-
-                    {/* Route Breakdown Rows */}
-                    {isExpanded && supplier.routes.map((route) => (
-                      <TableRow key={`${supplier.supplierId}-${route.citym}`} className="bg-muted/30">
-                        <TableCell></TableCell>
-                        <TableCell className="pl-10 text-sm text-muted-foreground">
-                          {formatCitym(route.citym)}
-                        </TableCell>
-                        {WEEK_DAYS.map((day, index) => {
-                          const key = `day${index + 1}` as keyof typeof route.plan
-                          const value = route.plan[key]
-                          return (
-                            <TableCell key={day.key} className="text-center text-sm text-muted-foreground">
-                              {value || ''}
-                            </TableCell>
-                          )
-                        })}
-                        <TableCell className="text-center text-sm font-medium text-muted-foreground">
-                          {route.plan.total}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </React.Fragment>
-                )
-              })
-            ) : (
-              // Group by Route view
-              routeGroupedData.map((route) => {
-                const isExpanded = expandedRows.has(route.citym)
-
-                return (
-                  <React.Fragment key={route.citym}>
-                    {/* Route Total Row */}
-                    <TableRow className="font-medium cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(route.citym)}>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={(e) => { e.stopPropagation(); toggleRow(route.citym) }}
-                        >
-                          {isExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </TableCell>
-                      <TableCell className="font-semibold">
-                        {formatCitym(route.citym)}
-                        <span className="text-xs text-muted-foreground ml-2">
-                          ({route.suppliers.length} {route.suppliers.length === 1 ? 'supplier' : 'suppliers'})
-                        </span>
-                      </TableCell>
-                      {WEEK_DAYS.map((day, index) => {
-                        const key = `day${index + 1}` as keyof typeof route.totals
-                        const value = route.totals[key]
-                        return (
-                          <TableCell key={day.key} className={cn("text-center", value > 0 && "font-medium")}>
-                            {value || ''}
+                          <TableCell className="font-semibold">
+                            {supplier.supplierName}
+                            <span className="text-xs text-muted-foreground ml-2">
+                              ({supplier.routes.length} {supplier.routes.length === 1 ? 'route' : 'routes'})
+                            </span>
                           </TableCell>
-                        )
-                      })}
-                      <TableCell className="text-center font-bold">
-                        {route.totals.total}
-                      </TableCell>
-                    </TableRow>
+                          {WEEK_DAYS.map((day, index) => {
+                            const key = `day${index + 1}` as keyof typeof supplier.totals
+                            const value = supplier.totals[key]
+                            return (
+                              <TableCell key={day.key} className={cn("text-center", value > 0 && "font-medium")}>
+                                {value || ''}
+                              </TableCell>
+                            )
+                          })}
+                          <TableCell className="text-center font-bold">
+                            {supplier.totals.total}
+                          </TableCell>
+                        </TableRow>
 
-                    {/* Supplier Breakdown Rows */}
-                    {isExpanded && route.suppliers.map((supplier) => (
-                      <TableRow key={`${route.citym}-${supplier.supplierId}`} className="bg-muted/30">
-                        <TableCell></TableCell>
-                        <TableCell className="pl-10 text-sm text-muted-foreground">
-                          {supplier.supplierName}
-                        </TableCell>
-                        {WEEK_DAYS.map((day, index) => {
-                          const key = `day${index + 1}` as keyof typeof supplier.plan
-                          const value = supplier.plan[key]
-                          return (
-                            <TableCell key={day.key} className="text-center text-sm text-muted-foreground">
-                              {value || ''}
+                        {/* Route Breakdown Rows */}
+                        {isExpanded && supplier.routes.map((route) => (
+                          <TableRow key={`${supplier.supplierId}-${route.routeKey}`} className="bg-muted/30">
+                            <TableCell></TableCell>
+                            <TableCell className="pl-10 text-sm text-muted-foreground">
+                              {formatCitym(route.routeKey)}
                             </TableCell>
-                          )
-                        })}
-                        <TableCell className="text-center text-sm font-medium text-muted-foreground">
-                          {supplier.plan.total}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </React.Fragment>
-                )
-              })
-            )}
+                            {WEEK_DAYS.map((day, index) => {
+                              const key = `day${index + 1}` as keyof typeof route.plan
+                              const value = route.plan[key]
+                              return (
+                                <TableCell key={day.key} className="text-center text-sm text-muted-foreground">
+                                  {value || ''}
+                                </TableCell>
+                              )
+                            })}
+                            <TableCell className="text-center text-sm font-medium text-muted-foreground">
+                              {route.plan.total}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </React.Fragment>
+                    )
+                  })
+                : routeGroupedData.map((route) => {
+                    const isExpanded = expandedRows.has(route.routeKey)
 
-            {/* Grand Total Row */}
-            <TableRow className="bg-[#4a7c59] hover:bg-[#4a7c59] font-bold">
-              <TableCell className="text-white"></TableCell>
-              <TableCell className="text-white font-bold">GRAND TOTAL</TableCell>
-              {WEEK_DAYS.map((day, index) => {
-                const key = `day${index + 1}` as keyof typeof data.grandTotals
-                return (
-                  <TableCell key={day.key} className="text-center text-white font-bold">
-                    {data.grandTotals[key]}
-                  </TableCell>
-                )
-              })}
-              <TableCell className="text-center text-white font-bold">
-                {data.grandTotals.total}
-              </TableCell>
-            </TableRow>
+                    return (
+                      <React.Fragment key={route.routeKey}>
+                        {/* Route Total Row */}
+                        <TableRow className="font-medium cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(route.routeKey)}>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={(e) => { e.stopPropagation(); toggleRow(route.routeKey) }}
+                            >
+                              {isExpanded ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </TableCell>
+                          <TableCell className="font-semibold">
+                            {formatCitym(route.routeKey)}
+                            <span className="text-xs text-muted-foreground ml-2">
+                              ({route.suppliers.length} {route.suppliers.length === 1 ? 'supplier' : 'suppliers'})
+                            </span>
+                          </TableCell>
+                          {WEEK_DAYS.map((day, index) => {
+                            const key = `day${index + 1}` as keyof typeof route.totals
+                            const value = route.totals[key]
+                            return (
+                              <TableCell key={day.key} className={cn("text-center", value > 0 && "font-medium")}>
+                                {value || ''}
+                              </TableCell>
+                            )
+                          })}
+                          <TableCell className="text-center font-bold">
+                            {route.totals.total}
+                          </TableCell>
+                        </TableRow>
+
+                        {/* Supplier Breakdown Rows */}
+                        {isExpanded && route.suppliers.map((supplier) => (
+                          <TableRow key={`${route.routeKey}-${supplier.supplierId}`} className="bg-muted/30">
+                            <TableCell></TableCell>
+                            <TableCell className="pl-10 text-sm text-muted-foreground">
+                              {supplier.supplierName}
+                            </TableCell>
+                            {WEEK_DAYS.map((day, index) => {
+                              const key = `day${index + 1}` as keyof typeof supplier.plan
+                              const value = supplier.plan[key]
+                              return (
+                                <TableCell key={day.key} className="text-center text-sm text-muted-foreground">
+                                  {value || ''}
+                                </TableCell>
+                              )
+                            })}
+                            <TableCell className="text-center text-sm font-medium text-muted-foreground">
+                              {supplier.plan.total}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </React.Fragment>
+                    )
+                  })}
+
+              {/* Grand Total Row */}
+              {renderGrandTotalRow()}
+            </>
           </TableBody>
         </Table>
       </div>

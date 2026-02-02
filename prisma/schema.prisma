@@ -2,47 +2,65 @@
 // Week structure: Sunday (day1) to Saturday (day7)
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["tracing"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ============ AUTHENTICATION & USERS ============
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String?  // Bcrypt hashed password
-  firstName    String
-  lastName     String
-  mobileNumber String?
-  avatarUrl    String?  // Cloudinary URL
-  role         UserRole
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  email               String   @unique
+  passwordHash        String? // Bcrypt hashed password
+  firstName           String
+  lastName            String
+  mobileNumber        String?
+  avatarUrl           String? // Cloudinary URL
+  role                UserRole
+  currentOrgId        String? // Current organization context
+  onboardingCompleted Boolean  @default(false) // Track if user completed onboarding
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   // Relations
-  sessions            Session[]
-  otpCodes            OTPCode[]
-  auditLogs           AuditLog[]
-  notifications       Notification[]
-  passwordResetTokens PasswordResetToken[]
-  demandForecasts     DemandForecast[]
-  supplyCommitments   SupplyCommitment[]
+  sessions                Session[]
+  otpCodes                OTPCode[]
+  auditLogs               AuditLog[]
+  notifications           Notification[]
+  passwordResetTokens     PasswordResetToken[]
+  demandForecasts         DemandForecast[]
+  supplyCommitments       SupplyCommitment[]
+  organizationMemberships OrganizationMember[]
+  managedClients          UserManagedClient[]
 
   @@index([email])
   @@index([role])
+  @@index([currentOrgId])
+  @@index([onboardingCompleted])
 }
 
 enum UserRole {
   DEMAND_PLANNER
   SUPPLY_PLANNER
   ADMIN
+}
+
+model UserManagedClient {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  partyId   String // Client (Party with role CUSTOMER)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, partyId])
+  @@index([userId])
+  @@index([partyId])
 }
 
 model Session {
@@ -65,7 +83,7 @@ model OTPCode {
   id        String     @id @default(cuid())
   userId    String
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  code      String     // 6-digit code (hashed)
+  code      String // 6-digit code (hashed)
   purpose   OTPPurpose
   expiresAt DateTime
   usedAt    DateTime?
@@ -82,27 +100,46 @@ enum OTPPurpose {
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String   @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
   @@index([token])
   @@index([expiresAt])
 }
 
+model Invitation {
+  id             String    @id @default(cuid())
+  email          String
+  token          String    @unique
+  organizationId String
+  role           OrgRole // OWNER, ADMIN, MEMBER
+  functionalRole UserRole // DEMAND_PLANNER, SUPPLY_PLANNER, ADMIN
+  invitedBy      String // userId who sent the invite
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([email])
+  @@index([token])
+  @@index([organizationId])
+  @@index([expiresAt])
+  @@index([acceptedAt])
+}
+
 model AuditLog {
   id         String   @id @default(cuid())
   userId     String
   user       User     @relation(fields: [userId], references: [id])
-  action     String   // e.g., "demand_forecast.create", "supply.update"
-  entityType String   // e.g., "DemandForecast", "SupplyCommitment"
+  action     String // e.g., "demand_forecast.create", "supply.update"
+  entityType String // e.g., "DemandForecast", "SupplyCommitment"
   entityId   String?
-  metadata   Json?    // Additional context (old/new values, etc.)
+  metadata   Json? // Additional context (old/new values, etc.)
   ipAddress  String?
   userAgent  String?
   createdAt  DateTime @default(now())
@@ -114,15 +151,15 @@ model AuditLog {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
+  id        String           @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   type      NotificationType
   title     String
   message   String
-  entityId  String?  // ID of related entity (forecast, commitment, etc.)
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
+  entityId  String? // ID of related entity (forecast, commitment, etc.)
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
 
   @@index([userId, isRead])
   @@index([createdAt])
@@ -134,86 +171,308 @@ enum NotificationType {
   SUPPLY_CREATED
 }
 
+// ============ ORGANIZATIONS & MULTI-TENANCY ============
+
+model Organization {
+  id                 String             @id @default(cuid())
+  name               String // "Trella", "MEPCO", etc.
+  slug               String             @unique // URL-friendly: "trella", "mepco"
+  country            String?            @default("SA") // Country code (e.g., "SA", "EG", "AE")
+  subscriptionTier   SubscriptionTier   @default(STARTER) // Subscription plan
+  subscriptionStatus SubscriptionStatus @default(FREE_TRIAL) // Subscription status
+  trialEndsAt        DateTime? // When free trial ends
+  isActive           Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  // Stripe Integration
+  stripeCustomerId            String?       @unique // Stripe customer ID
+  stripeSubscriptionId        String?       @unique // Current Stripe subscription ID
+  stripePriceId               String? // Current Stripe price ID
+  currentBillingCycle         BillingCycle? // MONTHLY or ANNUAL
+  subscriptionCurrentPeriodEnd DateTime? // When current billing period ends
+  subscriptionCancelAtPeriodEnd Boolean @default(false) // True if downgrade/cancellation scheduled
+
+  // Relations
+  domains           OrganizationDomain[]
+  members           OrganizationMember[]
+  settings          OrganizationSettings?
+  parties           Party[]
+  locations         Location[]
+  resourceTypes     ResourceType[]
+  planningWeeks     PlanningWeek[]
+  demandForecasts   DemandForecast[]
+  supplyCommitments SupplyCommitment[]
+  subscriptionEvents SubscriptionEvent[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@index([country])
+  @@index([subscriptionTier])
+  @@index([subscriptionStatus])
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
+}
+
+enum SubscriptionTier {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  FREE_TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+enum BillingCycle {
+  MONTHLY
+  ANNUAL
+}
+
+enum SubscriptionEventType {
+  CREATED
+  UPGRADED
+  DOWNGRADED
+  RENEWED
+  CANCELLED
+  PAYMENT_FAILED
+  REACTIVATED
+  TRIAL_CONVERTED
+}
+
+model SubscriptionEvent {
+  id              String                @id @default(cuid())
+  organizationId  String
+  organization    Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  eventType       SubscriptionEventType
+  fromTier        SubscriptionTier?
+  toTier          SubscriptionTier?
+  fromBillingCycle BillingCycle?
+  toBillingCycle   BillingCycle?
+  stripeEventId   String?               @unique
+  amount          Int? // Amount in cents
+  metadata        Json? // Additional event data
+  triggeredBy     String? // userId who initiated (null for automated events)
+  createdAt       DateTime              @default(now())
+
+  @@index([organizationId])
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+model OrganizationSettings {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Custom labels for UI (defaults to trucking terminology)
+  locationLabel           String @default("City") // "City" / "Warehouse" / "Factory" / "Store"
+  locationLabelPlural     String @default("Cities")
+  partyLabel              String @default("Partner") // "Client" / "Customer" / "Supplier" / "Vendor"
+  partyLabelPlural        String @default("Partners")
+  resourceTypeLabel       String @default("Truck Type") // "Truck Type" / "Product" / "Material" / "Machine Type"
+  resourceTypeLabelPlural String @default("Truck Types")
+  demandLabel             String @default("Demand")
+  demandLabelPlural       String @default("Demand Forecasts")
+  supplyLabel             String @default("Supply")
+  supplyLabelPlural       String @default("Supply Commitments")
+
+  // Planning configuration
+  planningCycle PlanningCycle @default(DAILY) // DAILY, WEEKLY, MONTHLY
+  weekStartDay  WeekStartDay  @default(SUNDAY) // SUNDAY, MONDAY, SATURDAY
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum PlanningCycle {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum WeekStartDay {
+  SUNDAY
+  MONDAY
+  SATURDAY
+}
+
+model OrganizationDomain {
+  id                String       @id @default(cuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  domain            String       @unique // "trella.app", "mepco.com"
+  isVerified        Boolean      @default(false)
+  isPrimary         Boolean      @default(false) // One primary domain per org
+  verificationToken String?      @unique // Token for DNS TXT record verification
+  verifiedAt        DateTime? // When domain was verified
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@unique([organizationId, domain])
+  @@index([organizationId])
+  @@index([domain])
+  @@index([verificationToken])
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           OrgRole // OWNER, ADMIN, MEMBER
+  functionalRole UserRole // DEMAND_PLANNER, SUPPLY_PLANNER, ADMIN
+  joinedAt       DateTime     @default(now())
+  invitedBy      String? // userId who invited
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([role])
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model PublicEmailDomain {
+  id        String   @id @default(cuid())
+  domain    String   @unique // "gmail.com", "outlook.com", "yahoo.com", etc.
+  createdAt DateTime @default(now())
+
+  @@index([domain])
+}
+
 // ============ MASTER DATA REPOSITORIES ============
 
-model Client {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  code      String?  @unique // Short code for display
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// Party: Generic entity for Client, Supplier, Carrier, Customer, Vendor, etc.
+model Party {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name             String // Organization name
+  uniqueIdentifier String?      @unique // Auto-generated unique ID (e.g., "cli_abc123xyz")
+  pointOfContact   String? // Main contact person name
+  phoneNumber      String? // Contact phone number
+  partyRole        PartyRole // CUSTOMER, SUPPLIER, CARRIER, etc.
 
-  demandForecasts DemandForecast[]
+  // Supplier-specific fields
+  capacity         Int? // Total capacity (e.g., number of trucks)
+  capacityType     String? // Type of capacity (e.g., "Curtainside Truck", "Flatbed", etc.)
 
-  @@index([name])
-  @@index([isActive])
-  @@map("Shipper") // Keep database table name for backwards compatibility
-}
+  isActive         Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
-model Supplier {
-  id        String   @id @default(cuid())
-  name      String   @unique // WLS, MOMENTUM, MOSANADA, etc.
-  code      String?  @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  // Relations
+  demandForecasts   DemandForecast[]
   supplyCommitments SupplyCommitment[]
 
+  @@unique([organizationId, name, partyRole])
+  @@index([organizationId])
   @@index([name])
+  @@index([partyRole])
   @@index([isActive])
+  @@index([uniqueIdentifier])
 }
 
-model City {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  nameAr    String?  // Arabic name
-  code      String?  @unique // Short code
-  region    String?  // Geographic region (West, Central, East, etc.)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum PartyRole {
+  CUSTOMER // Client/Shipper (demand side)
+  SUPPLIER // Carrier/Fleet Partner (supply side)
+  CARRIER // 3PL/Logistics provider
+  VENDOR // Material/product supplier
+  MANUFACTURER // Production partner
+  DISTRIBUTOR // Distribution partner
+}
 
-  pickupForecasts  DemandForecast[] @relation("PickupCity")
-  dropoffForecasts DemandForecast[] @relation("DropoffCity")
+// Location: Generic entity for City, Warehouse, Factory, Store, Plant, etc.
+model Location {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  code           String? // Short code for display
+  nameAr         String? // Arabic name (optional, for localization)
+  locationType   LocationType? // Optional categorization
+  region         String? // Geographic/logical grouping
+  metadata       Json? // Flexible additional data (coordinates, capacity, etc.)
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
+  // Relations
+  pickupForecasts  DemandForecast[] @relation("PickupLocation")
+  dropoffForecasts DemandForecast[] @relation("DropoffLocation")
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
   @@index([name])
+  @@index([locationType])
   @@index([region])
   @@index([isActive])
 }
 
-model TruckType {
-  id        String   @id @default(cuid())
-  name      String   @unique // e.g., "Curtainside", "Flatbed", "Reefer"
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum LocationType {
+  CITY
+  WAREHOUSE
+  FACTORY
+  STORE
+  PLANT
+  DISTRIBUTION_CENTER
+  PORT
+  TERMINAL
+}
 
+// ResourceType: Generic entity for Truck Type, Product, Material, Machine Type, SKU, etc.
+model ResourceType {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String // e.g., "Curtainside", "Product A", "Raw Material X"
+  code           String? // SKU, part number, etc.
+  category       String? // Optional categorization
+  metadata       Json? // Flexible additional data (specs, dimensions, etc.)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
   demandForecasts   DemandForecast[]
   supplyCommitments SupplyCommitment[]
 
+  @@unique([organizationId, name])
+  @@index([organizationId])
   @@index([name])
+  @@index([category])
   @@index([isActive])
 }
 
 // ============ PLANNING ============
 
 model PlanningWeek {
-  id         String   @id @default(cuid())
-  weekStart  DateTime // Sunday of the week
-  weekEnd    DateTime // Saturday of the week
-  year       Int
-  weekNumber Int
-  isCurrent  Boolean  @default(false)
-  isLocked   Boolean  @default(false) // Prevent edits after week passes
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  weekStart      DateTime // Sunday of the week
+  weekEnd        DateTime // Saturday of the week
+  year           Int
+  weekNumber     Int
+  isCurrent      Boolean      @default(false)
+  isLocked       Boolean      @default(false) // Prevent edits after week passes
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   demandForecasts   DemandForecast[]
   supplyCommitments SupplyCommitment[]
 
-  @@unique([year, weekNumber])
+  @@unique([organizationId, year, weekNumber])
+  @@index([organizationId])
   @@index([weekStart])
   @@index([isCurrent])
 }
@@ -221,33 +480,45 @@ model PlanningWeek {
 model DemandForecast {
   id String @id @default(cuid())
 
+  // Organization context
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   // Planning context
   planningWeekId String
   planningWeek   PlanningWeek @relation(fields: [planningWeekId], references: [id])
 
-  // Client & Route
-  clientId      String  @map("shipperId") // Keep database column name
-  client        Client  @relation(fields: [clientId], references: [id])
-  pickupCityId  String
-  pickupCity    City    @relation("PickupCity", fields: [pickupCityId], references: [id])
-  dropoffCityId String
-  dropoffCity   City    @relation("DropoffCity", fields: [dropoffCityId], references: [id])
-  citym         String  // Auto-generated: "PICKUP->DROPOFF"
+  // Party & Route (generic for any industry)
+  partyId           String
+  party             Party    @relation(fields: [partyId], references: [id])
+  pickupLocationId  String
+  pickupLocation    Location @relation("PickupLocation", fields: [pickupLocationId], references: [id])
+  dropoffLocationId String
+  dropoffLocation   Location @relation("DropoffLocation", fields: [dropoffLocationId], references: [id])
+  routeKey          String // Auto-generated: "PICKUP->DROPOFF" (replaces citym)
 
   // Classification
-  vertical    Vertical
-  truckTypeId String
-  truckType   TruckType @relation(fields: [truckTypeId], references: [id])
+  vertical       Vertical? // Optional: DOMESTIC, PORTS, etc. (industry-specific)
+  resourceTypeId String
+  resourceType   ResourceType @relation(fields: [resourceTypeId], references: [id])
 
-  // Daily load forecasts (Sunday to Saturday)
-  day1Loads  Int @default(0) // Sunday
-  day2Loads  Int @default(0) // Monday
-  day3Loads  Int @default(0) // Tuesday
-  day4Loads  Int @default(0) // Wednesday
-  day5Loads  Int @default(0) // Thursday
-  day6Loads  Int @default(0) // Friday
-  day7Loads  Int @default(0) // Saturday
-  totalLoads Int @default(0) // Computed sum
+  // Daily quantity forecasts (Sunday to Saturday) - for weekly planning
+  day1Qty  Int @default(0) // Sunday
+  day2Qty  Int @default(0) // Monday
+  day3Qty  Int @default(0) // Tuesday
+  day4Qty  Int @default(0) // Wednesday
+  day5Qty  Int @default(0) // Thursday
+  day6Qty  Int @default(0) // Friday
+  day7Qty  Int @default(0) // Saturday
+
+  // Weekly quantity forecasts (Week 1-5 of month) - for monthly planning
+  week1Qty Int @default(0) // Week 1
+  week2Qty Int @default(0) // Week 2
+  week3Qty Int @default(0) // Week 3
+  week4Qty Int @default(0) // Week 4
+  week5Qty Int @default(0) // Week 5 (some months have 5 weeks)
+
+  totalQty Int @default(0) // Computed sum (either sum of days or weeks depending on planning cycle)
 
   // Metadata
   createdById String
@@ -255,17 +526,18 @@ model DemandForecast {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@unique([planningWeekId, clientId, pickupCityId, dropoffCityId, truckTypeId])
-  @@index([citym])
+  @@unique([organizationId, planningWeekId, partyId, pickupLocationId, dropoffLocationId, resourceTypeId])
+  @@index([organizationId])
+  @@index([routeKey])
   @@index([planningWeekId])
   @@index([vertical])
-  @@index([clientId])
-  @@index([pickupCityId])
-  @@index([dropoffCityId])
-  @@index([truckTypeId])
+  @@index([partyId])
+  @@index([pickupLocationId])
+  @@index([dropoffLocationId])
+  @@index([resourceTypeId])
   @@index([createdById])
-  @@index([planningWeekId, clientId])
-  @@index([planningWeekId, citym])
+  @@index([planningWeekId, partyId])
+  @@index([planningWeekId, routeKey])
 }
 
 enum Vertical {
@@ -276,18 +548,22 @@ enum Vertical {
 model SupplyCommitment {
   id String @id @default(cuid())
 
+  // Organization context
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   // Planning context
   planningWeekId String
   planningWeek   PlanningWeek @relation(fields: [planningWeekId], references: [id])
 
-  // Supplier info
-  supplierId  String
-  supplier    Supplier   @relation(fields: [supplierId], references: [id])
-  citym       String     // Route this commitment is for
-  truckTypeId String?
-  truckType   TruckType? @relation(fields: [truckTypeId], references: [id])
+  // Supply party info (generic for any industry)
+  partyId        String
+  party          Party         @relation(fields: [partyId], references: [id])
+  routeKey       String // Route this commitment is for
+  resourceTypeId String?
+  resourceType   ResourceType? @relation(fields: [resourceTypeId], references: [id])
 
-  // Daily committed supply (Sunday to Saturday)
+  // Daily committed supply/capacity (Sunday to Saturday) - for weekly planning
   day1Committed  Int @default(0) // Sunday
   day2Committed  Int @default(0) // Monday
   day3Committed  Int @default(0) // Tuesday
@@ -295,7 +571,15 @@ model SupplyCommitment {
   day5Committed  Int @default(0) // Thursday
   day6Committed  Int @default(0) // Friday
   day7Committed  Int @default(0) // Saturday
-  totalCommitted Int @default(0) // Computed sum
+
+  // Weekly committed supply/capacity (Week 1-5 of month) - for monthly planning
+  week1Committed Int @default(0) // Week 1
+  week2Committed Int @default(0) // Week 2
+  week3Committed Int @default(0) // Week 3
+  week4Committed Int @default(0) // Week 4
+  week5Committed Int @default(0) // Week 5
+
+  totalCommitted Int @default(0) // Computed sum (either sum of days or weeks depending on planning cycle)
 
   // Metadata
   createdById String
@@ -303,11 +587,12 @@ model SupplyCommitment {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@unique([planningWeekId, supplierId, citym, truckTypeId])
-  @@index([citym])
+  @@unique([organizationId, planningWeekId, partyId, routeKey, resourceTypeId])
+  @@index([organizationId])
+  @@index([routeKey])
   @@index([planningWeekId])
-  @@index([supplierId])
-  @@index([truckTypeId])
+  @@index([partyId])
+  @@index([resourceTypeId])
   @@index([createdById])
 }
 
@@ -330,14 +615,14 @@ model ContactSubmission {
 // ============ REDASH DATA INTEGRATION ============
 
 model RedashSync {
-  id             String        @id @default(cuid())
+  id             String         @id @default(cuid())
   endpoint       RedashEndpoint @unique
   lastSyncAt     DateTime?
   lastSyncStatus SyncStatus
-  recordsCount   Int           @default(0)
+  recordsCount   Int            @default(0)
   errorMessage   String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 }
 
 enum RedashEndpoint {
@@ -354,7 +639,7 @@ enum SyncStatus {
 model ActualShipperRequest {
   id             String   @id @default(cuid())
   externalId     String   @unique // ID from Redash
-  shipperName    String?  // Original shipper name from Redash
+  shipperName    String? // Original shipper name from Redash
   citym          String
   requestDate    DateTime
   truckType      String?
@@ -370,7 +655,7 @@ model ActualShipperRequest {
 model FleetPartnerCompletion {
   id             String   @id @default(cuid())
   externalId     String   @unique // ID from Redash
-  supplierName   String?  // Original supplier name from Redash
+  supplierName   String? // Original supplier name from Redash
   citym          String
   completionDate DateTime
   truckType      String?

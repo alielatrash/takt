@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { getOrCreatePlanningWeek } from '@/lib/planning-week'
+import { orgScopedWhere } from '@/lib/org-scoped'
 
 export async function GET() {
   try {
@@ -13,25 +14,25 @@ export async function GET() {
       )
     }
 
-    // Get current planning week
-    const currentWeek = await getOrCreatePlanningWeek()
+    // Get current planning week (with org scoping)
+    const currentWeek = await getOrCreatePlanningWeek(new Date(), session.user.currentOrgId)
 
-    // Get demand forecasts for current week
+    // Get demand forecasts for current week (with org scoping)
     const forecasts = await prisma.demandForecast.findMany({
-      where: { planningWeekId: currentWeek.id },
-      include: { client: true },
+      where: orgScopedWhere(session, { planningWeekId: currentWeek.id }),
+      include: { party: true },
       orderBy: { createdAt: 'desc' },
     })
 
-    // Get supply commitments for current week
+    // Get supply commitments for current week (with org scoping)
     const commitments = await prisma.supplyCommitment.findMany({
-      where: { planningWeekId: currentWeek.id },
+      where: orgScopedWhere(session, { planningWeekId: currentWeek.id }),
     })
 
     // Calculate total demand
     const totalDemand = forecasts.reduce((sum, f) => {
-      return sum + f.day1Loads + f.day2Loads + f.day3Loads +
-        f.day4Loads + f.day5Loads + f.day6Loads + f.day7Loads
+      return sum + f.day1Qty + f.day2Qty + f.day3Qty +
+        f.day4Qty + f.day5Qty + f.day6Qty + f.day7Qty
     }, 0)
 
     // Calculate total committed supply
@@ -44,30 +45,30 @@ export async function GET() {
     const supplyGap = totalDemand - totalCommitted
     const gapPercent = totalDemand > 0 ? Math.round((supplyGap / totalDemand) * 100) : 0
 
-    // Get unique active routes (CITYm)
-    const activeRoutes = new Set(forecasts.map(f => f.citym)).size
+    // Get unique active routes (routeKey)
+    const activeRoutes = new Set(forecasts.map(f => f.routeKey)).size
 
     // Calculate gap by route
-    const demandByCitym = new Map<string, number>()
+    const demandByRouteKey = new Map<string, number>()
     for (const forecast of forecasts) {
-      const total = forecast.day1Loads + forecast.day2Loads + forecast.day3Loads +
-        forecast.day4Loads + forecast.day5Loads + forecast.day6Loads + forecast.day7Loads
-      demandByCitym.set(forecast.citym, (demandByCitym.get(forecast.citym) || 0) + total)
+      const total = forecast.day1Qty + forecast.day2Qty + forecast.day3Qty +
+        forecast.day4Qty + forecast.day5Qty + forecast.day6Qty + forecast.day7Qty
+      demandByRouteKey.set(forecast.routeKey, (demandByRouteKey.get(forecast.routeKey) || 0) + total)
     }
 
-    const committedByCitym = new Map<string, number>()
+    const committedByRouteKey = new Map<string, number>()
     for (const commitment of commitments) {
       const total = commitment.day1Committed + commitment.day2Committed + commitment.day3Committed +
         commitment.day4Committed + commitment.day5Committed + commitment.day6Committed + commitment.day7Committed
-      committedByCitym.set(commitment.citym, (committedByCitym.get(commitment.citym) || 0) + total)
+      committedByRouteKey.set(commitment.routeKey, (committedByRouteKey.get(commitment.routeKey) || 0) + total)
     }
 
     // Get routes with highest gaps
-    const routeGaps = Array.from(demandByCitym.entries()).map(([citym, target]) => ({
-      citym,
+    const routeGaps = Array.from(demandByRouteKey.entries()).map(([routeKey, target]) => ({
+      routeKey,
       target,
-      committed: committedByCitym.get(citym) || 0,
-      gap: target - (committedByCitym.get(citym) || 0),
+      committed: committedByRouteKey.get(routeKey) || 0,
+      gap: target - (committedByRouteKey.get(routeKey) || 0),
     }))
     routeGaps.sort((a, b) => b.gap - a.gap)
     const topGapRoutes = routeGaps.slice(0, 5)
@@ -75,10 +76,10 @@ export async function GET() {
     // Get recent forecasts
     const recentForecasts = forecasts.slice(0, 5).map(f => ({
       id: f.id,
-      citym: f.citym,
-      clientName: f.client?.name || null,
-      totalLoads: f.day1Loads + f.day2Loads + f.day3Loads +
-        f.day4Loads + f.day5Loads + f.day6Loads + f.day7Loads,
+      routeKey: f.routeKey,
+      partyName: f.party?.name || null,
+      totalQty: f.day1Qty + f.day2Qty + f.day3Qty +
+        f.day4Qty + f.day5Qty + f.day6Qty + f.day7Qty,
       createdAt: f.createdAt.toISOString(),
     }))
 

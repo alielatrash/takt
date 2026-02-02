@@ -10,13 +10,13 @@ import { DemandTable } from '@/components/demand/demand-table'
 import { DemandFormDialog } from '@/components/demand/demand-form-dialog'
 import { usePlanningWeeks, useDemandForecasts, useDeleteDemandForecast } from '@/hooks/use-demand'
 import { toast } from 'sonner'
-import type { DemandForecast, Client, City, TruckType } from '@prisma/client'
+import type { DemandForecast, Party, Location, ResourceType } from '@prisma/client'
 
 interface DemandForecastWithRelations extends DemandForecast {
-  client: Pick<Client, 'id' | 'name' | 'code'>
-  pickupCity: Pick<City, 'id' | 'name' | 'code' | 'region'>
-  dropoffCity: Pick<City, 'id' | 'name' | 'code' | 'region'>
-  truckType: Pick<TruckType, 'id' | 'name'>
+  party: Pick<Party, 'id' | 'name'>
+  pickupLocation: Pick<Location, 'id' | 'name' | 'code' | 'region'>
+  dropoffLocation: Pick<Location, 'id' | 'name' | 'code' | 'region'>
+  resourceType: Pick<ResourceType, 'id' | 'name'>
   createdBy: { id: string; firstName: string; lastName: string }
 }
 
@@ -75,21 +75,21 @@ export default function DemandPlanningPage() {
     ]
 
     const rows = forecastsData.data.map(f => [
-      f.client.name,
-      f.citym,
-      f.pickupCity.name,
-      f.dropoffCity.name,
-      `${f.pickupCity.region} → ${f.dropoffCity.region}`,
+      f.party.name,
+      f.routeKey,
+      f.pickupLocation.name,
+      f.dropoffLocation.name,
+      `${f.pickupLocation.region} → ${f.dropoffLocation.region}`,
       f.vertical,
-      f.truckType.name,
-      f.day1Loads,
-      f.day2Loads,
-      f.day3Loads,
-      f.day4Loads,
-      f.day5Loads,
-      f.day6Loads,
-      f.day7Loads,
-      f.totalLoads
+      f.resourceType.name,
+      f.day1Qty,
+      f.day2Qty,
+      f.day3Qty,
+      f.day4Qty,
+      f.day5Qty,
+      f.day6Qty,
+      f.day7Qty,
+      f.totalQty
     ])
 
     const csvContent = [
@@ -115,9 +115,11 @@ export default function DemandPlanningPage() {
     }
   }, [weeksData, selectedWeekId])
 
-  const totalLoads = forecastsData?.data?.reduce((sum, f) => sum + f.totalLoads, 0) ?? 0
-  const routeCount = new Set(forecastsData?.data?.map(f => f.citym)).size
+  const totalLoads = forecastsData?.data?.reduce((sum, f) => sum + f.totalQty, 0) ?? 0
+  const routeCount = new Set(forecastsData?.data?.map(f => f.routeKey)).size
   const selectedWeek = weeksData?.data?.find(w => w.id === selectedWeekId)
+  const planningCycle = weeksData?.meta?.planningCycle || 'WEEKLY'
+  const periodLabel = planningCycle === 'MONTHLY' ? 'monthly' : 'weekly'
 
   const handleAddForecast = () => {
     setEditingForecast(null)
@@ -140,7 +142,7 @@ export default function DemandPlanningPage() {
     <div className="space-y-6">
       <PageHeader
         title="Demand Planning"
-        description="Forecast weekly demand by client and route"
+        description={`Forecast ${periodLabel} demand by client and route`}
       >
         <WeekSelector value={selectedWeekId} onValueChange={handleWeekChange} />
         {selectedIds.size > 0 && (
@@ -205,6 +207,7 @@ export default function DemandPlanningPage() {
               isLoading={isLoading}
               onEditForecast={handleEditForecast}
               weekStart={selectedWeek?.weekStart}
+              planningWeekId={selectedWeekId}
               pagination={forecastsData?.pagination}
               onPageChange={setPage}
               selectedIds={selectedIds}

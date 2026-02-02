@@ -75,6 +75,16 @@ export const AuditAction = {
   USER_ROLE_CHANGED: 'user.role_changed',
   USER_DEACTIVATED: 'user.deactivated',
   USER_ACTIVATED: 'user.activated',
+
+  // Organization
+  ORGANIZATION_SWITCHED: 'organization.switched',
+  ORGANIZATION_CREATED: 'organization.created',
+  ORGANIZATION_UPDATED: 'organization.updated',
+  DOMAIN_ADDED: 'organization.domain_added',
+  DOMAIN_REMOVED: 'organization.domain_removed',
+  MEMBER_INVITED: 'organization.member_invited',
+  MEMBER_REMOVED: 'organization.member_removed',
+  MEMBER_ROLE_CHANGED: 'organization.member_role_changed',
 } as const
 
 export type AuditActionType = typeof AuditAction[keyof typeof AuditAction]

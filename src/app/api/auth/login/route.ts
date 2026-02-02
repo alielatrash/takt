@@ -74,6 +74,37 @@ export async function POST(request: Request) {
       )
     }
 
+    // Check if user has organization memberships
+    const memberships = await prisma.organizationMember.findMany({
+      where: { userId: user.id },
+      include: {
+        organization: {
+          select: { id: true, name: true },
+        },
+      },
+    })
+
+    if (memberships.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'NO_ORGANIZATION',
+            message: 'User is not a member of any organization. Please contact support.',
+          },
+        },
+        { status: 403 }
+      )
+    }
+
+    // Ensure user has currentOrgId set
+    if (!user.currentOrgId) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { currentOrgId: memberships[0].organizationId },
+      })
+    }
+
     // Create session and set cookie
     const userAgent = request.headers.get('user-agent') || undefined
     const token = await createSession(user.id, userAgent)

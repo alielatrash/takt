@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { startOfWeek, endOfWeek, subWeeks, format } from 'date-fns'
+import { orgScopedWhere } from '@/lib/org-scoped'
 
 export async function GET(request: Request) {
   try {
@@ -21,29 +22,31 @@ export async function GET(request: Request) {
     const endDate = endOfWeek(now, { weekStartsOn: 0 })
     const startDate = startOfWeek(subWeeks(now, weeksBack), { weekStartsOn: 0 })
 
-    // Get forecasts grouped by week and CITYm
+    // Get forecasts grouped by week and routeKey (with org scoping)
     const forecasts = await prisma.demandForecast.groupBy({
-      by: ['citym', 'planningWeekId'],
-      where: {
+      by: ['routeKey', 'planningWeekId'],
+      where: orgScopedWhere(session, {
         planningWeek: {
           weekStart: { gte: startDate, lte: endDate },
         },
-      },
+      }),
       _sum: {
-        totalLoads: true,
+        totalQty: true,
       },
     })
 
-    // Get planning weeks for display
+    // Get planning weeks for display (with org scoping)
     const planningWeeks = await prisma.planningWeek.findMany({
-      where: {
+      where: orgScopedWhere(session, {
         weekStart: { gte: startDate, lte: endDate },
-      },
+      }),
       select: { id: true, weekStart: true, weekNumber: true, year: true },
       orderBy: { weekStart: 'asc' },
     })
 
-    // Get actual requests grouped by week and CITYm
+    // Get actual requests grouped by week and routeKey
+    // Note: ActualShipperRequest doesn't have organizationId, so we can't scope it
+    // This data comes from external Redash sources and still uses 'citym' field name
     const actuals = await prisma.actualShipperRequest.groupBy({
       by: ['citym'],
       where: {
@@ -55,30 +58,30 @@ export async function GET(request: Request) {
       },
     })
 
-    // Build accuracy report by CITYm
-    const citymSet = new Set([
-      ...forecasts.map(f => f.citym),
+    // Build accuracy report by routeKey
+    const routeKeySet = new Set([
+      ...forecasts.map(f => f.routeKey),
       ...actuals.map(a => a.citym),
     ])
 
-    const forecastsByCitym = forecasts.reduce((acc, f) => {
-      if (!acc[f.citym]) acc[f.citym] = 0
-      acc[f.citym] += f._sum.totalLoads ?? 0
+    const forecastsByRouteKey = forecasts.reduce((acc, f) => {
+      if (!acc[f.routeKey]) acc[f.routeKey] = 0
+      acc[f.routeKey] += f._sum.totalQty ?? 0
       return acc
     }, {} as Record<string, number>)
 
-    const actualsByCitym = actuals.reduce((acc, a) => {
+    const actualsByRouteKey = actuals.reduce((acc, a) => {
       acc[a.citym] = {
-        requested: a._sum.loadsRequested ?? 0,
-        fulfilled: a._sum.loadsFulfilled ?? 0,
+        requested: a._sum?.loadsRequested ?? 0,
+        fulfilled: a._sum?.loadsFulfilled ?? 0,
       }
       return acc
     }, {} as Record<string, { requested: number; fulfilled: number }>)
 
-    const report = Array.from(citymSet).map(citym => {
-      const forecasted = forecastsByCitym[citym] || 0
-      const actual = actualsByCitym[citym]?.requested || 0
-      const fulfilled = actualsByCitym[citym]?.fulfilled || 0
+    const report = Array.from(routeKeySet).map(routeKey => {
+      const forecasted = forecastsByRouteKey[routeKey] || 0
+      const actual = actualsByRouteKey[routeKey]?.requested || 0
+      const fulfilled = actualsByRouteKey[routeKey]?.fulfilled || 0
 
       const accuracy = forecasted > 0
         ? Math.round((actual / forecasted) * 100)
@@ -90,7 +93,7 @@ export async function GET(request: Request) {
         : 0
 
       return {
-        citym,
+        routeKey,
         forecasted,
         actual,
         fulfilled,

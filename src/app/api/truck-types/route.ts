@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { createAuditLog, AuditAction } from '@/lib/audit'
 import { createTruckTypeSchema, searchParamsSchema } from '@/lib/validations/repositories'
+import { orgScopedWhere, orgScopedData } from '@/lib/org-scoped'
 
 export async function GET(request: Request) {
   try {
@@ -24,21 +25,21 @@ export async function GET(request: Request) {
       isActive: searchParams.get('isActive'),
     })
 
-    const where = {
+    const where = orgScopedWhere(session, {
       ...(params.q && {
         name: { contains: params.q, mode: 'insensitive' as const },
       }),
       ...(params.isActive !== undefined && { isActive: params.isActive }),
-    }
+    })
 
     const [truckTypes, total] = await Promise.all([
-      prisma.truckType.findMany({
+      prisma.resourceType.findMany({
         where,
         orderBy: { [params.sortBy || 'name']: params.sortOrder },
         skip: (params.page - 1) * params.pageSize,
         take: params.pageSize,
       }),
-      prisma.truckType.count({ where }),
+      prisma.resourceType.count({ where }),
     ])
 
     return NextResponse.json({
@@ -89,8 +90,11 @@ export async function POST(request: Request) {
 
     const { name } = validationResult.data
 
-    const existing = await prisma.truckType.findFirst({
-      where: { name: { equals: name, mode: 'insensitive' } },
+    // Check for duplicates within organization
+    const existing = await prisma.resourceType.findFirst({
+      where: orgScopedWhere(session, {
+        name: { equals: name, mode: 'insensitive' },
+      }),
     })
 
     if (existing) {
@@ -103,14 +107,17 @@ export async function POST(request: Request) {
       )
     }
 
-    const truckType = await prisma.truckType.create({
-      data: { name },
+    const truckType = await prisma.resourceType.create({
+      data: orgScopedData(session, {
+        name,
+        isActive: true,
+      }),
     })
 
     await createAuditLog({
       userId: session.user.id,
       action: AuditAction.TRUCK_TYPE_CREATED,
-      entityType: 'TruckType',
+      entityType: 'ResourceType',
       entityId: truckType.id,
       metadata: { name },
     })

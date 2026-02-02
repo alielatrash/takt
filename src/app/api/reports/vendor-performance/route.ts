@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
+import { orgScopedWhere } from '@/lib/org-scoped'
 
 // Get vendor performance report data
 export async function GET(request: Request) {
@@ -16,63 +17,64 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
-    const supplierId = searchParams.get('supplierId')
-    const citym = searchParams.get('citym')
+    const partyId = searchParams.get('supplierId') || searchParams.get('partyId')
+    const routeKey = searchParams.get('citym') || searchParams.get('routeKey')
 
     // Build date filter
     const dateFilter: { gte?: Date; lte?: Date } = {}
     if (startDate) dateFilter.gte = new Date(startDate)
     if (endDate) dateFilter.lte = new Date(endDate)
 
-    // Get supply commitments
+    // Get supply commitments (with org scoping)
     const commitments = await prisma.supplyCommitment.findMany({
-      where: {
+      where: orgScopedWhere(session, {
         planningWeek: dateFilter.gte || dateFilter.lte ? {
           weekStart: dateFilter,
         } : undefined,
-        supplierId: supplierId || undefined,
-        citym: citym || undefined,
-      },
+        partyId: partyId || undefined,
+        routeKey: routeKey || undefined,
+      }),
       include: {
         planningWeek: true,
-        supplier: true,
+        party: true,
       },
     })
 
     // Get fleet partner completions
+    // Note: FleetPartnerCompletion doesn't have organizationId and uses 'citym' field
     const completions = await prisma.fleetPartnerCompletion.findMany({
       where: {
         completionDate: dateFilter.gte || dateFilter.lte ? dateFilter : undefined,
-        citym: citym || undefined,
+        citym: routeKey || undefined,
       },
     })
 
-    // Group commitments by supplier and week
-    const commitmentBySupplierWeek = new Map<string, {
-      supplierId: string
-      supplierName: string
+    // Group commitments by party and week
+    const commitmentByPartyWeek = new Map<string, {
+      partyId: string
+      partyName: string
       weekStart: Date
       committed: number
       routes: Set<string>
     }>()
 
     for (const commitment of commitments) {
-      const key = `${commitment.supplierId}-${commitment.planningWeek.weekStart.toISOString()}`
-      const existing = commitmentBySupplierWeek.get(key)
+      const key = `${commitment.partyId}-${commitment.planningWeek.weekStart.toISOString()}`
+      const existing = commitmentByPartyWeek.get(key)
       const totalCommitted = commitment.day1Committed + commitment.day2Committed +
         commitment.day3Committed + commitment.day4Committed + commitment.day5Committed +
         commitment.day6Committed + commitment.day7Committed
 
       if (existing) {
         existing.committed += totalCommitted
-        existing.routes.add(commitment.citym)
+        existing.routes.add(commitment.routeKey)
       } else {
-        commitmentBySupplierWeek.set(key, {
-          supplierId: commitment.supplierId,
-          supplierName: commitment.supplier?.name || 'Unknown',
+        commitmentByPartyWeek.set(key, {
+          partyId: commitment.partyId,
+          partyName: commitment.party?.name || 'Unknown',
           weekStart: commitment.planningWeek.weekStart,
           committed: totalCommitted,
-          routes: new Set([commitment.citym]),
+          routes: new Set([commitment.routeKey]),
         })
       }
     }
@@ -98,8 +100,8 @@ export async function GET(request: Request) {
 
     // Calculate performance metrics
     const reportData: {
-      supplierId: string
-      supplierName: string
+      partyId: string
+      partyName: string
       weekStart: string
       committed: number
       completed: number
@@ -108,9 +110,9 @@ export async function GET(request: Request) {
       routes: string[]
     }[] = []
 
-    for (const [, commitment] of commitmentBySupplierWeek) {
-      // Try to find completions by supplier name
-      const completionKey = `${commitment.supplierName}-${commitment.weekStart.toISOString()}`
+    for (const [, commitment] of commitmentByPartyWeek) {
+      // Try to find completions by party name
+      const completionKey = `${commitment.partyName}-${commitment.weekStart.toISOString()}`
       const completed = completionBySupplierWeek.get(completionKey) || 0
       const variance = completed - commitment.committed
       const fulfillmentRate = commitment.committed > 0
@@ -118,8 +120,8 @@ export async function GET(request: Request) {
         : 0
 
       reportData.push({
-        supplierId: commitment.supplierId,
-        supplierName: commitment.supplierName,
+        partyId: commitment.partyId,
+        partyName: commitment.partyName,
         weekStart: commitment.weekStart.toISOString().split('T')[0],
         committed: commitment.committed,
         completed,
@@ -129,11 +131,11 @@ export async function GET(request: Request) {
       })
     }
 
-    // Sort by week (newest first), then by supplier name
+    // Sort by week (newest first), then by party name
     reportData.sort((a, b) => {
       const weekCompare = b.weekStart.localeCompare(a.weekStart)
       if (weekCompare !== 0) return weekCompare
-      return a.supplierName.localeCompare(b.supplierName)
+      return a.partyName.localeCompare(b.partyName)
     })
 
     // Calculate summary metrics
@@ -145,15 +147,15 @@ export async function GET(request: Request) {
       : 0
 
     // Top performers (highest fulfillment rate)
-    const supplierPerformance = new Map<string, { committed: number; completed: number }>()
+    const partyPerformance = new Map<string, { committed: number; completed: number }>()
     for (const row of reportData) {
-      const existing = supplierPerformance.get(row.supplierName) || { committed: 0, completed: 0 }
+      const existing = partyPerformance.get(row.partyName) || { committed: 0, completed: 0 }
       existing.committed += row.committed
       existing.completed += row.completed
-      supplierPerformance.set(row.supplierName, existing)
+      partyPerformance.set(row.partyName, existing)
     }
 
-    const topPerformers = Array.from(supplierPerformance.entries())
+    const topPerformers = Array.from(partyPerformance.entries())
       .map(([name, data]) => ({
         name,
         fulfillmentRate: data.committed > 0 ? Math.round((data.completed / data.committed) * 100) : 0,
@@ -171,7 +173,7 @@ export async function GET(request: Request) {
         totalCompleted,
         overallVariance,
         overallFulfillmentRate,
-        supplierCount: new Set(reportData.map(r => r.supplierId)).size,
+        supplierCount: new Set(reportData.map(r => r.partyId)).size,
         weekCount: new Set(reportData.map(r => r.weekStart)).size,
         topPerformers,
       },

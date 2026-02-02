@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { createAuditLog, AuditAction } from '@/lib/audit'
 import { createCitySchema, searchParamsSchema } from '@/lib/validations/repositories'
+import { orgScopedWhere, orgScopedData } from '@/lib/org-scoped'
 
 export async function GET(request: Request) {
   try {
@@ -26,7 +27,7 @@ export async function GET(request: Request) {
 
     const region = searchParams.get('region')
 
-    const where = {
+    const where = orgScopedWhere(session, {
       ...(params.q && {
         OR: [
           { name: { contains: params.q, mode: 'insensitive' as const } },
@@ -36,16 +37,16 @@ export async function GET(request: Request) {
       }),
       ...(params.isActive !== undefined && { isActive: params.isActive }),
       ...(region && { region }),
-    }
+    })
 
     const [cities, total] = await Promise.all([
-      prisma.city.findMany({
+      prisma.location.findMany({
         where,
         orderBy: { [params.sortBy || 'name']: params.sortOrder },
         skip: (params.page - 1) * params.pageSize,
         take: params.pageSize,
       }),
-      prisma.city.count({ where }),
+      prisma.location.count({ where }),
     ])
 
     return NextResponse.json({
@@ -96,13 +97,14 @@ export async function POST(request: Request) {
 
     const { name, nameAr, code, region } = validationResult.data
 
-    const existing = await prisma.city.findFirst({
-      where: {
+    // Check for duplicates within organization
+    const existing = await prisma.location.findFirst({
+      where: orgScopedWhere(session, {
         OR: [
           { name: { equals: name, mode: 'insensitive' } },
           ...(code ? [{ code: { equals: code, mode: 'insensitive' as const } }] : []),
         ],
-      },
+      }),
     })
 
     if (existing) {
@@ -115,14 +117,20 @@ export async function POST(request: Request) {
       )
     }
 
-    const city = await prisma.city.create({
-      data: { name, nameAr, code, region },
+    const city = await prisma.location.create({
+      data: orgScopedData(session, {
+        name,
+        nameAr,
+        code,
+        region,
+        isActive: true,
+      }),
     })
 
     await createAuditLog({
       userId: session.user.id,
       action: AuditAction.CITY_CREATED,
-      entityType: 'City',
+      entityType: 'Location',
       entityId: city.id,
       metadata: { name, code, region },
     })

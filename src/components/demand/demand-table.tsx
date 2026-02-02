@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { format, addWeeks } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -23,16 +24,23 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useUpdateDemandForecast, useDeleteDemandForecast } from '@/hooks/use-demand'
+import { useUpdateDemandForecast, useDeleteDemandForecast, usePlanningWeeks } from '@/hooks/use-demand'
 import { WEEK_DAYS } from '@/types'
 import { formatCitym } from '@/lib/citym'
-import type { DemandForecast, Client, City, TruckType } from '@prisma/client'
+import type { DemandForecast, Party, Location, ResourceType } from '@prisma/client'
+
+const MONTH_WEEKS = [
+  { key: 'week1', label: 'Week 1' },
+  { key: 'week2', label: 'Week 2' },
+  { key: 'week3', label: 'Week 3' },
+  { key: 'week4', label: 'Week 4' },
+]
 
 interface DemandForecastWithRelations extends DemandForecast {
-  client: Pick<Client, 'id' | 'name' | 'code'>
-  pickupCity: Pick<City, 'id' | 'name' | 'code' | 'region'>
-  dropoffCity: Pick<City, 'id' | 'name' | 'code' | 'region'>
-  truckType: Pick<TruckType, 'id' | 'name'>
+  party: Pick<Party, 'id' | 'name'>
+  pickupLocation: Pick<Location, 'id' | 'name' | 'code' | 'region'>
+  dropoffLocation: Pick<Location, 'id' | 'name' | 'code' | 'region'>
+  resourceType: Pick<ResourceType, 'id' | 'name'>
   createdBy: { id: string; firstName: string; lastName: string }
 }
 
@@ -50,6 +58,7 @@ interface DemandTableProps {
   isLoading: boolean
   onEditForecast?: (forecast: DemandForecastWithRelations) => void
   weekStart?: Date | string
+  planningWeekId?: string
   pagination?: PaginationInfo
   onPageChange?: (page: number) => void
   selectedIds?: Set<string>
@@ -66,11 +75,36 @@ function formatDayDate(weekStart: Date | string, dayIndex: number): string {
   return `${day}-${month}`
 }
 
-export function DemandTable({ data, isLoading, onEditForecast, weekStart, pagination, onPageChange, selectedIds = new Set(), onSelectionChange }: DemandTableProps) {
+export function DemandTable({ data, isLoading, onEditForecast, weekStart, planningWeekId, pagination, onPageChange, selectedIds = new Set(), onSelectionChange }: DemandTableProps) {
+  const { data: planningWeeksData } = usePlanningWeeks()
   const updateMutation = useUpdateDemandForecast()
   const deleteMutation = useDeleteDemandForecast()
   const [editingCell, setEditingCell] = useState<{ id: string; day: string } | null>(null)
   const [editValue, setEditValue] = useState<string>('')
+
+  const planningCycle = planningWeeksData?.meta?.planningCycle || 'WEEKLY'
+  const isMonthlyPlanning = planningCycle === 'MONTHLY'
+
+  // Calculate week date ranges for monthly planning
+  const weekDateRanges = useMemo(() => {
+    if (!isMonthlyPlanning || !planningWeeksData?.data || !planningWeekId) return []
+
+    const selectedWeek = planningWeeksData.data.find(w => w.id === planningWeekId)
+    if (!selectedWeek) return []
+
+    const monthStart = new Date(selectedWeek.weekStart)
+
+    return MONTH_WEEKS.map((_, index) => {
+      const weekStartDate = addWeeks(monthStart, index)
+      const weekEndDate = addWeeks(weekStartDate, 1)
+      weekEndDate.setDate(weekEndDate.getDate() - 1) // End on the last day of the week
+
+      return {
+        start: format(weekStartDate, 'd'),  // Just day number
+        end: format(weekEndDate, 'd')       // Just day number
+      }
+    })
+  }, [isMonthlyPlanning, planningWeeksData, planningWeekId])
 
   const toggleSelection = (id: string) => {
     const newSelection = new Set(selectedIds)
@@ -118,8 +152,8 @@ export function DemandTable({ data, isLoading, onEditForecast, weekStart, pagina
     }
   }
 
-  const handleDelete = async (id: string, citym: string) => {
-    if (!confirm(`Are you sure you want to delete the forecast for ${formatCitym(citym)}?`)) return
+  const handleDelete = async (id: string, routeKey: string) => {
+    if (!confirm(`Are you sure you want to delete the forecast for ${formatCitym(routeKey)}?`)) return
     try {
       await deleteMutation.mutateAsync(id)
       toast.success('Forecast deleted successfully')
@@ -129,6 +163,7 @@ export function DemandTable({ data, isLoading, onEditForecast, weekStart, pagina
   }
 
   if (isLoading) {
+    const columnCount = isMonthlyPlanning ? 4 : 7
     return (
       <div className="overflow-x-auto">
         <Table>
@@ -140,9 +175,15 @@ export function DemandTable({ data, isLoading, onEditForecast, weekStart, pagina
               <TableHead className="font-semibold">Region</TableHead>
               <TableHead className="font-semibold">Vertical</TableHead>
               <TableHead className="font-semibold">Truck Type</TableHead>
-              {WEEK_DAYS.map((day) => (
-                <TableHead key={day.key} className="text-center w-16 font-semibold">{day.label}</TableHead>
-              ))}
+              {isMonthlyPlanning ? (
+                MONTH_WEEKS.map((week) => (
+                  <TableHead key={week.key} className="text-center w-20 font-semibold">{week.label}</TableHead>
+                ))
+              ) : (
+                WEEK_DAYS.map((day) => (
+                  <TableHead key={day.key} className="text-center w-16 font-semibold">{day.label}</TableHead>
+                ))
+              )}
               <TableHead className="text-center font-semibold">Total</TableHead>
               <TableHead className="w-10"></TableHead>
             </TableRow>
@@ -150,7 +191,7 @@ export function DemandTable({ data, isLoading, onEditForecast, weekStart, pagina
           <TableBody>
             {Array.from({ length: 5 }).map((_, i) => (
               <TableRow key={i}>
-                {Array.from({ length: 15 }).map((_, j) => (
+                {Array.from({ length: 8 + columnCount }).map((_, j) => (
                   <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
                 ))}
               </TableRow>
@@ -194,18 +235,33 @@ export function DemandTable({ data, isLoading, onEditForecast, weekStart, pagina
             <TableHead className="font-semibold">Region</TableHead>
             <TableHead className="font-semibold">Vertical</TableHead>
             <TableHead className="font-semibold">Truck Type</TableHead>
-            {WEEK_DAYS.map((day, index) => (
-              <TableHead key={day.key} className="text-center w-16 font-semibold p-2">
-                <div className="flex flex-col items-center gap-0.5">
-                  <span>{day.label}</span>
-                  {weekStart && (
-                    <span className="text-[10px] font-normal text-muted-foreground">
-                      {formatDayDate(weekStart, index)}
-                    </span>
-                  )}
-                </div>
-              </TableHead>
-            ))}
+            {isMonthlyPlanning ? (
+              MONTH_WEEKS.map((week, index) => (
+                <TableHead key={week.key} className="text-center w-20 font-semibold p-2">
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span>{week.label}</span>
+                    {weekDateRanges[index] && (
+                      <span className="text-[10px] font-normal text-muted-foreground">
+                        days {weekDateRanges[index].start}-{weekDateRanges[index].end}
+                      </span>
+                    )}
+                  </div>
+                </TableHead>
+              ))
+            ) : (
+              WEEK_DAYS.map((day, index) => (
+                <TableHead key={day.key} className="text-center w-16 font-semibold p-2">
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span>{day.label}</span>
+                    {weekStart && (
+                      <span className="text-[10px] font-normal text-muted-foreground">
+                        {formatDayDate(weekStart, index)}
+                      </span>
+                    )}
+                  </div>
+                </TableHead>
+              ))
+            )}
             <TableHead className="text-center font-semibold bg-muted/30">Total</TableHead>
             <TableHead className="w-10"></TableHead>
           </TableRow>
@@ -217,17 +273,17 @@ export function DemandTable({ data, isLoading, onEditForecast, weekStart, pagina
                 <Checkbox
                   checked={selectedIds.has(forecast.id)}
                   onCheckedChange={() => toggleSelection(forecast.id)}
-                  aria-label={`Select ${forecast.client.name}`}
+                  aria-label={`Select ${forecast.party.name}`}
                 />
               </TableCell>
               <TableCell className="sticky left-0 bg-inherit font-medium max-w-[200px] truncate">
-                {forecast.client.name}
+                {forecast.party.name}
               </TableCell>
               <TableCell className="whitespace-nowrap text-sm">
-                {formatCitym(forecast.citym)}
+                {formatCitym(forecast.routeKey)}
               </TableCell>
               <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                {forecast.pickupCity.region} → {forecast.dropoffCity.region}
+                {forecast.pickupLocation.region} → {forecast.dropoffLocation.region}
               </TableCell>
               <TableCell>
                 <Badge
@@ -237,39 +293,72 @@ export function DemandTable({ data, isLoading, onEditForecast, weekStart, pagina
                   {forecast.vertical}
                 </Badge>
               </TableCell>
-              <TableCell className="text-sm">{forecast.truckType.name}</TableCell>
-              {WEEK_DAYS.map((day, dayIndex) => {
-                const dayNum = `day${dayIndex + 1}` as string
-                const dayKey = `${dayNum}Loads` as keyof DemandForecast
-                const value = (forecast[dayKey] as number) ?? 0
-                const isEditing = editingCell?.id === forecast.id && editingCell?.day === dayNum
+              <TableCell className="text-sm">{forecast.resourceType.name}</TableCell>
+              {isMonthlyPlanning ? (
+                MONTH_WEEKS.map((week, weekIndex) => {
+                  const weekNum = `week${weekIndex + 1}` as string
+                  const weekKey = `${weekNum}Qty` as keyof DemandForecast
+                  const value = (forecast[weekKey] as number) ?? 0
+                  const isEditing = editingCell?.id === forecast.id && editingCell?.day === weekNum
 
-                return (
-                  <TableCell key={day.key} className="text-center p-1">
-                    {isEditing ? (
-                      <Input
-                        type="number"
-                        min="0"
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onBlur={() => handleCellBlur(forecast.id, dayNum)}
-                        onKeyDown={(e) => handleKeyDown(e, forecast.id, dayNum)}
-                        className="h-8 w-14 text-center text-sm"
-                        autoFocus
-                      />
-                    ) : (
-                      <button
-                        onClick={() => handleCellClick(forecast.id, dayNum, value)}
-                        className="w-full h-8 hover:bg-primary/10 hover:text-primary rounded px-2 transition-colors font-medium"
-                      >
-                        {value}
-                      </button>
-                    )}
-                  </TableCell>
-                )
-              })}
+                  return (
+                    <TableCell key={week.key} className="text-center p-1">
+                      {isEditing ? (
+                        <Input
+                          type="number"
+                          min="0"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onBlur={() => handleCellBlur(forecast.id, weekNum)}
+                          onKeyDown={(e) => handleKeyDown(e, forecast.id, weekNum)}
+                          className="h-8 w-16 text-center text-sm"
+                          autoFocus
+                        />
+                      ) : (
+                        <button
+                          onClick={() => handleCellClick(forecast.id, weekNum, value)}
+                          className="w-full h-8 hover:bg-primary/10 hover:text-primary rounded px-2 transition-colors font-medium"
+                        >
+                          {value}
+                        </button>
+                      )}
+                    </TableCell>
+                  )
+                })
+              ) : (
+                WEEK_DAYS.map((day, dayIndex) => {
+                  const dayNum = `day${dayIndex + 1}` as string
+                  const dayKey = `${dayNum}Qty` as keyof DemandForecast
+                  const value = (forecast[dayKey] as number) ?? 0
+                  const isEditing = editingCell?.id === forecast.id && editingCell?.day === dayNum
+
+                  return (
+                    <TableCell key={day.key} className="text-center p-1">
+                      {isEditing ? (
+                        <Input
+                          type="number"
+                          min="0"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onBlur={() => handleCellBlur(forecast.id, dayNum)}
+                          onKeyDown={(e) => handleKeyDown(e, forecast.id, dayNum)}
+                          className="h-8 w-14 text-center text-sm"
+                          autoFocus
+                        />
+                      ) : (
+                        <button
+                          onClick={() => handleCellClick(forecast.id, dayNum, value)}
+                          className="w-full h-8 hover:bg-primary/10 hover:text-primary rounded px-2 transition-colors font-medium"
+                        >
+                          {value}
+                        </button>
+                      )}
+                    </TableCell>
+                  )
+                })
+              )}
               <TableCell className="text-center font-bold bg-muted/30">
-                {forecast.totalLoads}
+                {forecast.totalQty}
               </TableCell>
               <TableCell>
                 <DropdownMenu>
@@ -285,7 +374,7 @@ export function DemandTable({ data, isLoading, onEditForecast, weekStart, pagina
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
-                      onClick={() => handleDelete(forecast.id, forecast.citym)}
+                      onClick={() => handleDelete(forecast.id, forecast.routeKey)}
                       className="text-destructive"
                     >
                       <Trash2 className="mr-2 h-4 w-4" />

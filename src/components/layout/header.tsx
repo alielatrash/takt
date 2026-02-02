@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { OrganizationSwitcher } from '@/components/organization/organization-switcher'
 import type { SessionUser } from '@/types'
 import { useNotifications, useMarkNotificationsRead } from '@/hooks/use-notifications'
 import { formatDistanceToNow } from 'date-fns'
@@ -53,6 +54,7 @@ export function Header({ user }: HeaderProps) {
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background px-6" suppressHydrationWarning>
       <div className="flex items-center gap-4">
         <h1 className="text-lg font-semibold">Dashboard</h1>
+        <OrganizationSwitcher />
       </div>
 
       <div className="flex items-center gap-4">

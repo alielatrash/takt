@@ -13,7 +13,7 @@ const createUserSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
 })
 
-// Get all users (admin only)
+// Get all users (admin only, scoped to current organization)
 export async function GET() {
   try {
     const session = await getSession()
@@ -31,19 +31,33 @@ export async function GET() {
       )
     }
 
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        mobileNumber: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
+    // Only show users from the current organization via OrganizationMember
+    const memberships = await prisma.organizationMember.findMany({
+      where: {
+        organizationId: session.user.currentOrgId,
       },
-      orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            mobileNumber: true,
+            role: true,
+            isActive: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: { joinedAt: 'desc' },
     })
+
+    const users = memberships.map(m => ({
+      ...m.user,
+      orgRole: m.role,
+      functionalRole: m.functionalRole,
+    }))
 
     return NextResponse.json({ success: true, data: users })
   } catch (error) {
@@ -107,7 +121,7 @@ export async function POST(request: Request) {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10)
 
-    // Create user
+    // Create user and add to current organization
     const user = await prisma.user.create({
       data: {
         email,
@@ -117,6 +131,7 @@ export async function POST(request: Request) {
         role,
         passwordHash,
         isActive: true,
+        currentOrgId: session.user.currentOrgId,
       },
       select: {
         id: true,
@@ -127,6 +142,16 @@ export async function POST(request: Request) {
         role: true,
         isActive: true,
         createdAt: true,
+      },
+    })
+
+    // Create organization membership
+    await prisma.organizationMember.create({
+      data: {
+        organizationId: session.user.currentOrgId,
+        userId: user.id,
+        role: 'MEMBER',
+        functionalRole: role,
       },
     })
 

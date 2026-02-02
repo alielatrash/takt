@@ -7,16 +7,7 @@ export const createDemandForecastSchema = z.object({
   dropoffCityId: z.string().min(1, 'Dropoff city is required'),
   vertical: z.enum(['DOMESTIC', 'PORTS'], { message: 'Vertical is required' }),
   truckTypeId: z.string().min(1, 'Truck type is required'),
-  day1Loads: z.number().min(0),
-  day2Loads: z.number().min(0),
-  day3Loads: z.number().min(0),
-  day4Loads: z.number().min(0),
-  day5Loads: z.number().min(0),
-  day6Loads: z.number().min(0),
-  day7Loads: z.number().min(0),
-})
-
-export const updateDemandForecastSchema = z.object({
+  // Daily loads (for weekly planning)
   day1Loads: z.number().min(0).optional(),
   day2Loads: z.number().min(0).optional(),
   day3Loads: z.number().min(0).optional(),
@@ -24,6 +15,29 @@ export const updateDemandForecastSchema = z.object({
   day5Loads: z.number().min(0).optional(),
   day6Loads: z.number().min(0).optional(),
   day7Loads: z.number().min(0).optional(),
+  // Weekly loads (for monthly planning)
+  week1Loads: z.number().min(0).optional(),
+  week2Loads: z.number().min(0).optional(),
+  week3Loads: z.number().min(0).optional(),
+  week4Loads: z.number().min(0).optional(),
+  week5Loads: z.number().min(0).optional(),
+})
+
+export const updateDemandForecastSchema = z.object({
+  // Daily loads (for weekly planning)
+  day1Loads: z.number().min(0).optional(),
+  day2Loads: z.number().min(0).optional(),
+  day3Loads: z.number().min(0).optional(),
+  day4Loads: z.number().min(0).optional(),
+  day5Loads: z.number().min(0).optional(),
+  day6Loads: z.number().min(0).optional(),
+  day7Loads: z.number().min(0).optional(),
+  // Weekly loads (for monthly planning)
+  week1Loads: z.number().min(0).optional(),
+  week2Loads: z.number().min(0).optional(),
+  week3Loads: z.number().min(0).optional(),
+  week4Loads: z.number().min(0).optional(),
+  week5Loads: z.number().min(0).optional(),
   vertical: z.enum(['DOMESTIC', 'PORTS']).optional(),
   truckTypeId: z.string().optional(),
 })

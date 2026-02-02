@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, PartyRole, LocationType } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
@@ -6,8 +6,11 @@ const prisma = new PrismaClient()
 // Default password for seed users
 const DEFAULT_PASSWORD = 'Password1'
 
-// Truck types as specified
-const truckTypes = [
+// Default Trella organization ID (consistent for seed)
+const TRELLA_ORG_ID = 'cm50trella000org'
+
+// Resource types (formerly truck types)
+const resourceTypes = [
   'Flatbed',
   'Curtain Side',
   'Closed Flatbed',
@@ -591,96 +594,257 @@ const suppliers = [
 async function main() {
   console.log('Starting seed...')
 
-  // Seed truck types
-  console.log('Seeding truck types...')
-  for (const name of truckTypes) {
-    await prisma.truckType.upsert({
-      where: { name },
+  // 1. Create Trella organization
+  console.log('Creating Trella organization...')
+  const trellaOrg = await prisma.organization.upsert({
+    where: { id: TRELLA_ORG_ID },
+    update: {},
+    create: {
+      id: TRELLA_ORG_ID,
+      name: 'Trella',
+      slug: 'trella',
+      isActive: true,
+    },
+  })
+  console.log('✓ Created Trella organization')
+
+  // 2. Create organization settings (trucking terminology)
+  await prisma.organizationSettings.upsert({
+    where: { organizationId: trellaOrg.id },
+    update: {},
+    create: {
+      organizationId: trellaOrg.id,
+      locationLabel: 'City',
+      locationLabelPlural: 'Cities',
+      partyLabel: 'Partner',
+      partyLabelPlural: 'Partners',
+      resourceTypeLabel: 'Truck Type',
+      resourceTypeLabelPlural: 'Truck Types',
+      demandLabel: 'Demand',
+      demandLabelPlural: 'Demand Forecasts',
+      supplyLabel: 'Supply',
+      supplyLabelPlural: 'Supply Commitments',
+    },
+  })
+  console.log('✓ Created organization settings')
+
+  // 3. Claim trella.app and teamtakt.app domains
+  await prisma.organizationDomain.upsert({
+    where: { domain: 'trella.app' },
+    update: {},
+    create: {
+      organizationId: trellaOrg.id,
+      domain: 'trella.app',
+      isVerified: true,
+      isPrimary: true,
+    },
+  })
+  await prisma.organizationDomain.upsert({
+    where: { domain: 'teamtakt.app' },
+    update: {},
+    create: {
+      organizationId: trellaOrg.id,
+      domain: 'teamtakt.app',
+      isVerified: true,
+      isPrimary: false,
+    },
+  })
+  console.log('✓ Claimed domains')
+
+  // 4. Seed public email domains
+  const publicDomains = [
+    'gmail.com', 'googlemail.com', 'outlook.com', 'hotmail.com',
+    'yahoo.com', 'icloud.com', 'me.com', 'aol.com', 'mail.com',
+    'protonmail.com', 'proton.me',
+  ]
+  for (const domain of publicDomains) {
+    await prisma.publicEmailDomain.upsert({
+      where: { domain },
       update: {},
-      create: { name, isActive: true },
+      create: { domain },
     })
   }
-  console.log(`Seeded ${truckTypes.length} truck types`)
+  console.log(`✓ Seeded ${publicDomains.length} public email domains`)
 
-  // Seed cities
-  console.log('Seeding cities...')
+  // 5. Seed resource types (truck types)
+  console.log('Seeding resource types...')
+  for (const name of resourceTypes) {
+    await prisma.resourceType.upsert({
+      where: { organizationId_name: { organizationId: trellaOrg.id, name } },
+      update: {},
+      create: { organizationId: trellaOrg.id, name, isActive: true },
+    })
+  }
+  console.log(`✓ Seeded ${resourceTypes.length} resource types`)
+
+  // 6. Seed locations (cities)
+  console.log('Seeding locations...')
   for (const name of cities) {
     const region = cityRegions[name] || 'Other'
-    await prisma.city.upsert({
-      where: { name },
+    await prisma.location.upsert({
+      where: { organizationId_name: { organizationId: trellaOrg.id, name } },
       update: { region },
-      create: { name, region, isActive: true },
+      create: {
+        organizationId: trellaOrg.id,
+        name,
+        region,
+        locationType: LocationType.CITY,
+        isActive: true,
+      },
     })
   }
-  console.log(`Seeded ${cities.length} cities`)
+  console.log(`✓ Seeded ${cities.length} locations`)
 
-  // Seed clients
-  console.log('Seeding clients...')
+  // 7. Seed parties - customers (formerly clients)
+  console.log('Seeding parties (customers)...')
   for (const name of clients) {
-    await prisma.client.upsert({
-      where: { name },
+    await prisma.party.upsert({
+      where: {
+        organizationId_name_partyRole: {
+          organizationId: trellaOrg.id,
+          name,
+          partyRole: PartyRole.CUSTOMER,
+        },
+      },
       update: {},
-      create: { name, isActive: true },
+      create: {
+        organizationId: trellaOrg.id,
+        name,
+        partyRole: PartyRole.CUSTOMER,
+        isActive: true,
+      },
     })
   }
-  console.log(`Seeded ${clients.length} clients`)
+  console.log(`✓ Seeded ${clients.length} customer parties`)
 
-  // Seed suppliers
-  console.log('Seeding suppliers...')
+  // 8. Seed parties - suppliers (formerly suppliers)
+  console.log('Seeding parties (suppliers)...')
   for (const name of suppliers) {
-    await prisma.supplier.upsert({
-      where: { name },
+    await prisma.party.upsert({
+      where: {
+        organizationId_name_partyRole: {
+          organizationId: trellaOrg.id,
+          name,
+          partyRole: PartyRole.SUPPLIER,
+        },
+      },
       update: {},
-      create: { name, isActive: true },
+      create: {
+        organizationId: trellaOrg.id,
+        name,
+        partyRole: PartyRole.SUPPLIER,
+        isActive: true,
+      },
     })
   }
-  console.log(`Seeded ${suppliers.length} suppliers`)
+  console.log(`✓ Seeded ${suppliers.length} supplier parties`)
 
-  // Create sample users (for development)
+  // 9. Create sample users (for development)
   console.log('Creating sample users...')
   const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 12)
 
-  await prisma.user.upsert({
-    where: { email: 'admin@teamtakt.app' },
-    update: { passwordHash },
+  // Admin user
+  const adminUser = await prisma.user.upsert({
+    where: { email: 'admin@trella.app' },
+    update: { passwordHash, currentOrgId: trellaOrg.id },
     create: {
-      email: 'admin@teamtakt.app',
+      email: 'admin@trella.app',
       passwordHash,
       firstName: 'Admin',
       lastName: 'User',
       role: 'ADMIN',
+      currentOrgId: trellaOrg.id,
       isActive: true,
     },
   })
 
-  await prisma.user.upsert({
-    where: { email: 'demand@teamtakt.app' },
-    update: { passwordHash },
+  await prisma.organizationMember.upsert({
+    where: {
+      organizationId_userId: {
+        organizationId: trellaOrg.id,
+        userId: adminUser.id,
+      },
+    },
+    update: {},
     create: {
-      email: 'demand@teamtakt.app',
+      organizationId: trellaOrg.id,
+      userId: adminUser.id,
+      role: 'OWNER',
+      functionalRole: 'ADMIN',
+    },
+  })
+
+  // Demand planner user
+  const demandUser = await prisma.user.upsert({
+    where: { email: 'demand@trella.app' },
+    update: { passwordHash, currentOrgId: trellaOrg.id },
+    create: {
+      email: 'demand@trella.app',
       passwordHash,
       firstName: 'Demand',
       lastName: 'Planner',
       role: 'DEMAND_PLANNER',
+      currentOrgId: trellaOrg.id,
       isActive: true,
     },
   })
 
-  await prisma.user.upsert({
-    where: { email: 'supply@teamtakt.app' },
-    update: { passwordHash },
+  await prisma.organizationMember.upsert({
+    where: {
+      organizationId_userId: {
+        organizationId: trellaOrg.id,
+        userId: demandUser.id,
+      },
+    },
+    update: {},
     create: {
-      email: 'supply@teamtakt.app',
+      organizationId: trellaOrg.id,
+      userId: demandUser.id,
+      role: 'MEMBER',
+      functionalRole: 'DEMAND_PLANNER',
+    },
+  })
+
+  // Supply planner user
+  const supplyUser = await prisma.user.upsert({
+    where: { email: 'supply@trella.app' },
+    update: { passwordHash, currentOrgId: trellaOrg.id },
+    create: {
+      email: 'supply@trella.app',
       passwordHash,
       firstName: 'Supply',
       lastName: 'Planner',
       role: 'SUPPLY_PLANNER',
+      currentOrgId: trellaOrg.id,
       isActive: true,
     },
   })
 
-  console.log('Seed completed!')
+  await prisma.organizationMember.upsert({
+    where: {
+      organizationId_userId: {
+        organizationId: trellaOrg.id,
+        userId: supplyUser.id,
+      },
+    },
+    update: {},
+    create: {
+      organizationId: trellaOrg.id,
+      userId: supplyUser.id,
+      role: 'MEMBER',
+      functionalRole: 'SUPPLY_PLANNER',
+    },
+  })
+
+  console.log('✓ Created 3 sample users and assigned to Trella organization')
+  console.log('\nSeed completed!')
+  console.log('='.repeat(50))
   console.log('Default password for all users:', DEFAULT_PASSWORD)
+  console.log('Test accounts:')
+  console.log('  - admin@trella.app (OWNER)')
+  console.log('  - demand@trella.app (DEMAND_PLANNER)')
+  console.log('  - supply@trella.app (SUPPLY_PLANNER)')
+  console.log('='.repeat(50))
 }
 
 main()

@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { format, addWeeks } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -16,12 +17,20 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useUpdateSupplyCommitment, useDeleteSupplyCommitment } from '@/hooks/use-supply'
+import { usePlanningWeeks } from '@/hooks/use-demand'
 import { WEEK_DAYS } from '@/types'
 import { formatCitym } from '@/lib/citym'
 import { cn } from '@/lib/utils'
 
+const MONTH_WEEKS = [
+  { key: 'week1', label: 'Week 1' },
+  { key: 'week2', label: 'Week 2' },
+  { key: 'week3', label: 'Week 3' },
+  { key: 'week4', label: 'Week 4' },
+]
+
 interface SupplyTarget {
-  citym: string
+  routeKey: string
   forecastCount: number
   target: { day1: number; day2: number; day3: number; day4: number; day5: number; day6: number; day7: number; total: number }
   committed: { day1: number; day2: number; day3: number; day4: number; day5: number; day6: number; day7: number; total: number }
@@ -40,7 +49,7 @@ interface SupplyTarget {
   }>
   commitments: Array<{
     id: string
-    supplier: { id: string; name: string; code: string | null }
+    party: { id: string; name: string; code: string | null }
     day1: number
     day2: number
     day3: number
@@ -55,22 +64,49 @@ interface SupplyTarget {
 interface SupplyTableProps {
   data: SupplyTarget[] | undefined
   isLoading: boolean
-  onAddCommitment: (citym: string) => void
+  onAddCommitment: (routeKey: string) => void
+  planningWeekId?: string
+  weekStart?: Date | string
 }
 
-export function SupplyTable({ data, isLoading, onAddCommitment }: SupplyTableProps) {
+export function SupplyTable({ data, isLoading, onAddCommitment, planningWeekId, weekStart }: SupplyTableProps) {
+  const { data: planningWeeksData } = usePlanningWeeks()
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const [editingCell, setEditingCell] = useState<{ id: string; day: string } | null>(null)
   const [editValue, setEditValue] = useState<string>('')
   const updateMutation = useUpdateSupplyCommitment()
   const deleteMutation = useDeleteSupplyCommitment()
 
-  const toggleRow = (citym: string) => {
+  const planningCycle = planningWeeksData?.meta?.planningCycle || 'WEEKLY'
+  const isMonthlyPlanning = planningCycle === 'MONTHLY'
+
+  // Calculate week date ranges for monthly planning
+  const weekDateRanges = useMemo(() => {
+    if (!isMonthlyPlanning || !planningWeeksData?.data || !planningWeekId) return []
+
+    const selectedWeek = planningWeeksData.data.find(w => w.id === planningWeekId)
+    if (!selectedWeek) return []
+
+    const monthStart = new Date(selectedWeek.weekStart)
+
+    return MONTH_WEEKS.map((_, index) => {
+      const weekStartDate = addWeeks(monthStart, index)
+      const weekEndDate = addWeeks(weekStartDate, 1)
+      weekEndDate.setDate(weekEndDate.getDate() - 1)
+
+      return {
+        start: format(weekStartDate, 'd'),
+        end: format(weekEndDate, 'd')
+      }
+    })
+  }, [isMonthlyPlanning, planningWeeksData, planningWeekId])
+
+  const toggleRow = (routeKey: string) => {
     const newExpanded = new Set(expandedRows)
-    if (newExpanded.has(citym)) {
-      newExpanded.delete(citym)
+    if (newExpanded.has(routeKey)) {
+      newExpanded.delete(routeKey)
     } else {
-      newExpanded.add(citym)
+      newExpanded.add(routeKey)
     }
     setExpandedRows(newExpanded)
   }
@@ -119,6 +155,7 @@ export function SupplyTable({ data, isLoading, onAddCommitment }: SupplyTablePro
   }
 
   if (isLoading) {
+    const columnCount = isMonthlyPlanning ? 4 : 7
     return (
       <div className="rounded-md border">
         <Table>
@@ -127,9 +164,15 @@ export function SupplyTable({ data, isLoading, onAddCommitment }: SupplyTablePro
               <TableHead className="w-8"></TableHead>
               <TableHead>Route (CITYm)</TableHead>
               <TableHead>Row</TableHead>
-              {WEEK_DAYS.map((day) => (
-                <TableHead key={day.key} className="text-center w-16">{day.label}</TableHead>
-              ))}
+              {isMonthlyPlanning ? (
+                MONTH_WEEKS.map((week) => (
+                  <TableHead key={week.key} className="text-center w-20">{week.label}</TableHead>
+                ))
+              ) : (
+                WEEK_DAYS.map((day) => (
+                  <TableHead key={day.key} className="text-center w-16">{day.label}</TableHead>
+                ))
+              )}
               <TableHead className="text-center">Total</TableHead>
               <TableHead className="w-10"></TableHead>
             </TableRow>
@@ -137,7 +180,7 @@ export function SupplyTable({ data, isLoading, onAddCommitment }: SupplyTablePro
           <TableBody>
             {Array.from({ length: 5 }).map((_, i) => (
               <TableRow key={i}>
-                {Array.from({ length: 12 }).map((_, j) => (
+                {Array.from({ length: 5 + columnCount }).map((_, j) => (
                   <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
                 ))}
               </TableRow>
@@ -165,19 +208,34 @@ export function SupplyTable({ data, isLoading, onAddCommitment }: SupplyTablePro
             <TableHead className="w-8"></TableHead>
             <TableHead className="sticky left-0 bg-background">Route (CITYm)</TableHead>
             <TableHead>Row</TableHead>
-            {WEEK_DAYS.map((day) => (
-              <TableHead key={day.key} className="text-center w-16">{day.label}</TableHead>
-            ))}
+            {isMonthlyPlanning ? (
+              MONTH_WEEKS.map((week, index) => (
+                <TableHead key={week.key} className="text-center w-20">
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span>{week.label}</span>
+                    {weekDateRanges[index] && (
+                      <span className="text-[10px] font-normal text-muted-foreground">
+                        days {weekDateRanges[index].start}-{weekDateRanges[index].end}
+                      </span>
+                    )}
+                  </div>
+                </TableHead>
+              ))
+            ) : (
+              WEEK_DAYS.map((day) => (
+                <TableHead key={day.key} className="text-center w-16">{day.label}</TableHead>
+              ))
+            )}
             <TableHead className="text-center font-semibold">Total</TableHead>
             <TableHead className="w-10"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {data.map((target) => {
-            const isExpanded = expandedRows.has(target.citym)
+            const isExpanded = expandedRows.has(target.routeKey)
 
             return (
-              <React.Fragment key={target.citym}>
+              <React.Fragment key={target.routeKey}>
                 {/* Target Row */}
                 <TableRow className="bg-muted/30">
                   <TableCell>
@@ -185,7 +243,7 @@ export function SupplyTable({ data, isLoading, onAddCommitment }: SupplyTablePro
                       variant="ghost"
                       size="icon"
                       className="h-6 w-6"
-                      onClick={() => toggleRow(target.citym)}
+                      onClick={() => toggleRow(target.routeKey)}
                     >
                       {isExpanded ? (
                         <ChevronDown className="h-4 w-4" />
@@ -195,7 +253,7 @@ export function SupplyTable({ data, isLoading, onAddCommitment }: SupplyTablePro
                     </Button>
                   </TableCell>
                   <TableCell className="sticky left-0 bg-muted/30 font-medium">
-                    {formatCitym(target.citym)}
+                    {formatCitym(target.routeKey)}
                   </TableCell>
                   <TableCell className="font-semibold text-blue-600">TARGET</TableCell>
                   {WEEK_DAYS.map((day, index) => {
@@ -214,7 +272,7 @@ export function SupplyTable({ data, isLoading, onAddCommitment }: SupplyTablePro
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => onAddCommitment(target.citym)}
+                      onClick={() => onAddCommitment(target.routeKey)}
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
@@ -290,7 +348,7 @@ export function SupplyTable({ data, isLoading, onAddCommitment }: SupplyTablePro
                       </TableCell>
                     </TableRow>
                     {target.clients.map((clientData, idx) => (
-                      <TableRow key={`${target.citym}-client-${idx}`} className="bg-blue-50/50">
+                      <TableRow key={`${target.routeKey}-client-${idx}`} className="bg-blue-50/50">
                         <TableCell></TableCell>
                         <TableCell className="pl-8 text-sm text-blue-700">
                           {clientData.client.name}
@@ -329,7 +387,7 @@ export function SupplyTable({ data, isLoading, onAddCommitment }: SupplyTablePro
                   <TableRow key={commitment.id} className="bg-yellow-50/50">
                     <TableCell></TableCell>
                     <TableCell className="pl-8 text-sm text-muted-foreground">
-                      {commitment.supplier.name}
+                      {commitment.party.name}
                     </TableCell>
                     <TableCell></TableCell>
                     {WEEK_DAYS.map((day, index) => {
@@ -367,7 +425,7 @@ export function SupplyTable({ data, isLoading, onAddCommitment }: SupplyTablePro
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-destructive"
-                        onClick={() => handleDeleteCommitment(commitment.id, commitment.supplier.name)}
+                        onClick={() => handleDeleteCommitment(commitment.id, commitment.party.name)}
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>

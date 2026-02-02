@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { startOfWeek, endOfWeek, subWeeks, format } from 'date-fns'
+import { orgScopedWhere } from '@/lib/org-scoped'
 
 // Vendor Performance Report: Compare supply commitments vs actual completions
 export async function GET(request: Request) {
@@ -22,32 +23,33 @@ export async function GET(request: Request) {
     const startDate = subWeeks(startOfWeek(now, { weekStartsOn: 0 }), weeksBack)
     const endDate = endOfWeek(now, { weekStartsOn: 0 })
 
-    // Get commitments grouped by supplier
+    // Get commitments grouped by party (supplier) with org scoping
     const commitments = await prisma.supplyCommitment.groupBy({
-      by: ['supplierId'],
-      where: {
+      by: ['partyId'],
+      where: orgScopedWhere(session, {
         planningWeek: {
           weekStart: { gte: startDate, lte: endDate },
         },
-      },
+      }),
       _sum: {
         totalCommitted: true,
       },
     })
 
-    // Get supplier details
-    const supplierIds = commitments.map((c) => c.supplierId)
-    const suppliers = await prisma.supplier.findMany({
-      where: { id: { in: supplierIds } },
-      select: { id: true, name: true, code: true },
+    // Get party (supplier) details
+    const partyIds = commitments.map((c) => c.partyId)
+    const parties = await prisma.party.findMany({
+      where: orgScopedWhere(session, { id: { in: partyIds } }),
+      select: { id: true, name: true },
     })
 
-    const supplierMap = suppliers.reduce((acc, s) => {
-      acc[s.id] = s
+    const partyMap = parties.reduce((acc, p) => {
+      acc[p.id] = p
       return acc
-    }, {} as Record<string, { id: string; name: string; code: string | null }>)
+    }, {} as Record<string, { id: string; name: string }>)
 
     // Get actual completions by supplier name (since we match by name from Redash)
+    // Note: FleetPartnerCompletion doesn't have organizationId
     const completions = await prisma.fleetPartnerCompletion.groupBy({
       by: ['supplierName'],
       where: {
@@ -69,12 +71,12 @@ export async function GET(request: Request) {
 
     // Build performance report
     const report = commitments.map((commitment) => {
-      const supplier = supplierMap[commitment.supplierId]
+      const party = partyMap[commitment.partyId]
       const committed = commitment._sum.totalCommitted ?? 0
 
-      // Try to match supplier name (case-insensitive)
-      const completed = supplier
-        ? completionsMap[supplier.name.toLowerCase()] ?? 0
+      // Try to match party name (case-insensitive)
+      const completed = party
+        ? completionsMap[party.name.toLowerCase()] ?? 0
         : 0
 
       const performanceRate = committed > 0
@@ -84,9 +86,8 @@ export async function GET(request: Request) {
       const variance = completed - committed
 
       return {
-        supplierId: commitment.supplierId,
-        supplierName: supplier?.name ?? 'Unknown',
-        supplierCode: supplier?.code ?? null,
+        partyId: commitment.partyId,
+        partyName: party?.name ?? 'Unknown',
         committed,
         completed,
         performanceRate,

@@ -52,7 +52,7 @@ export default function DispatchSheetPage() {
       supplier.routes.forEach(route => {
         rows.push([
           supplier.supplierName,
-          route.citym,
+          route.routeKey,
           route.plan.day1.toString(),
           route.plan.day2.toString(),
           route.plan.day3.toString(),

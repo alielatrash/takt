@@ -47,15 +47,51 @@ export async function PATCH(
       )
     }
 
-    const user = await prisma.user.update({
-      where: { id: userId },
-      data: { role: parsed.data.role },
-      select: {
-        id: true,
-        email: true,
-        role: true,
+    // Check if user exists and belongs to current organization via OrganizationMember
+    const membership = await prisma.organizationMember.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId: session.user.currentOrgId,
+          userId,
+        },
+      },
+      include: {
+        user: {
+          select: { id: true, role: true },
+        },
       },
     })
+
+    if (!membership) {
+      return NextResponse.json(
+        { success: false, error: { code: 'NOT_FOUND', message: 'User not found in current organization' } },
+        { status: 404 }
+      )
+    }
+
+    // Update user role and functional role in membership
+    const [user] = await Promise.all([
+      prisma.user.update({
+        where: { id: userId },
+        data: { role: parsed.data.role },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+        },
+      }),
+      prisma.organizationMember.update({
+        where: {
+          organizationId_userId: {
+            organizationId: session.user.currentOrgId,
+            userId,
+          },
+        },
+        data: {
+          functionalRole: parsed.data.role,
+        },
+      }),
+    ])
 
     // Log the action
     await prisma.auditLog.create({
@@ -64,7 +100,7 @@ export async function PATCH(
         action: 'UPDATE',
         entityType: 'User',
         entityId: userId,
-        metadata: { previousRole: user.role, newRole: parsed.data.role },
+        metadata: { previousRole: membership.user.role, newRole: parsed.data.role },
       },
     })
 

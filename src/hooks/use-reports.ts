@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 interface ForecastAccuracyRow {
-  citym: string
+  routeKey: string
   forecasted: number
   actual: number
   fulfilled: number
@@ -80,13 +80,13 @@ export function useVendorPerformance(params?: {
   startDate?: string
   endDate?: string
   supplierId?: string
-  citym?: string
+  routeKey?: string
 }) {
   const searchParams = new URLSearchParams()
   if (params?.startDate) searchParams.set('startDate', params.startDate)
   if (params?.endDate) searchParams.set('endDate', params.endDate)
   if (params?.supplierId) searchParams.set('supplierId', params.supplierId)
-  if (params?.citym) searchParams.set('citym', params.citym)
+  if (params?.routeKey) searchParams.set('routeKey', params.routeKey)
 
   return useQuery({
     queryKey: ['reports', 'vendor-performance', params],

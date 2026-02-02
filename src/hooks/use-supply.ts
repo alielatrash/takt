@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 interface SupplyTarget {
-  citym: string
+  routeKey: string
   forecastCount: number
   target: { day1: number; day2: number; day3: number; day4: number; day5: number; day6: number; day7: number; total: number }
   committed: { day1: number; day2: number; day3: number; day4: number; day5: number; day6: number; day7: number; total: number }
@@ -22,7 +22,7 @@ interface SupplyTarget {
   }>
   commitments: Array<{
     id: string
-    supplier: { id: string; name: string; code: string | null }
+    party: { id: string; name: string; code: string | null }
     day1: number
     day2: number
     day3: number
@@ -52,7 +52,7 @@ export function useSupplyTargets(planningWeekId?: string) {
 interface CreateSupplyCommitmentInput {
   planningWeekId: string
   supplierId: string
-  citym: string
+  routeKey: string
   truckTypeId?: string
   day1Committed?: number
   day2Committed?: number
@@ -131,7 +131,7 @@ export function useDeleteSupplyCommitment() {
 
 // Dispatch Sheet types
 interface DispatchRoute {
-  citym: string
+  routeKey: string
   plan: { day1: number; day2: number; day3: number; day4: number; day5: number; day6: number; day7: number; total: number }
 }
 

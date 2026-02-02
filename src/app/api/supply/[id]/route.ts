@@ -4,6 +4,7 @@ import { getSession, hasPermission } from '@/lib/auth'
 import { createAuditLog, AuditAction } from '@/lib/audit'
 import { updateSupplyCommitmentSchema } from '@/lib/validations/supply'
 import { notifyDemandPlannerOfSupply } from '@/lib/notifications'
+import { verifyOrgOwnership } from '@/lib/org-scoped'
 
 type RouteParams = { params: Promise<{ id: string }> }
 
@@ -21,8 +22,8 @@ export async function GET(request: Request, { params }: RouteParams) {
     const commitment = await prisma.supplyCommitment.findUnique({
       where: { id },
       include: {
-        supplier: { select: { id: true, name: true, code: true } },
-        truckType: { select: { id: true, name: true } },
+        party: { select: { id: true, name: true } },
+        resourceType: { select: { id: true, name: true } },
         planningWeek: { select: { id: true, weekStart: true, weekEnd: true } },
         createdBy: { select: { id: true, firstName: true, lastName: true } },
       },
@@ -34,6 +35,9 @@ export async function GET(request: Request, { params }: RouteParams) {
         { status: 404 }
       )
     }
+
+    // Verify ownership
+    verifyOrgOwnership(session, commitment)
 
     return NextResponse.json({ success: true, data: commitment })
   } catch (error) {
@@ -92,6 +96,9 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       )
     }
 
+    // Verify ownership
+    verifyOrgOwnership(session, existing)
+
     if (existing.planningWeek.isLocked) {
       return NextResponse.json(
         { success: false, error: { code: 'LOCKED', message: 'This planning week is locked' } },
@@ -101,7 +108,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     const data = validationResult.data
 
-    // Calculate new total
+    // Calculate new total - handle both day and week fields
     const day1 = data.day1Committed ?? existing.day1Committed
     const day2 = data.day2Committed ?? existing.day2Committed
     const day3 = data.day3Committed ?? existing.day3Committed
@@ -109,7 +116,16 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const day5 = data.day5Committed ?? existing.day5Committed
     const day6 = data.day6Committed ?? existing.day6Committed
     const day7 = data.day7Committed ?? existing.day7Committed
-    const totalCommitted = day1 + day2 + day3 + day4 + day5 + day6 + day7
+    const dayTotal = day1 + day2 + day3 + day4 + day5 + day6 + day7
+
+    const week1 = data.week1Committed ?? existing.week1Committed
+    const week2 = data.week2Committed ?? existing.week2Committed
+    const week3 = data.week3Committed ?? existing.week3Committed
+    const week4 = data.week4Committed ?? existing.week4Committed
+    const week5 = data.week5Committed ?? existing.week5Committed
+    const weekTotal = week1 + week2 + week3 + week4 + week5
+
+    const totalCommitted = dayTotal > 0 ? dayTotal : weekTotal
 
     const commitment = await prisma.supplyCommitment.update({
       where: { id },
@@ -118,8 +134,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         totalCommitted,
       },
       include: {
-        supplier: { select: { id: true, name: true, code: true } },
-        truckType: { select: { id: true, name: true } },
+        party: { select: { id: true, name: true } },
+        resourceType: { select: { id: true, name: true } },
         planningWeek: { select: { id: true, weekStart: true, weekEnd: true } },
         createdBy: { select: { id: true, firstName: true, lastName: true } },
       },
@@ -136,8 +152,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     // Notify demand planners who created forecasts for this route
     notifyDemandPlannerOfSupply(
       commitment.id,
-      commitment.citym,
-      commitment.supplier.name,
+      commitment.routeKey,
+      commitment.party.name,
       `${session.user.firstName} ${session.user.lastName}`,
       commitment.planningWeekId
     ).catch((err) => console.error('Failed to send notifications:', err))
@@ -182,6 +198,9 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       )
     }
 
+    // Verify ownership
+    verifyOrgOwnership(session, existing)
+
     if (existing.planningWeek.isLocked) {
       return NextResponse.json(
         { success: false, error: { code: 'LOCKED', message: 'This planning week is locked' } },
@@ -196,7 +215,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       action: AuditAction.SUPPLY_DELETED,
       entityType: 'SupplyCommitment',
       entityId: id,
-      metadata: { citym: existing.citym, supplierId: existing.supplierId },
+      metadata: { routeKey: existing.routeKey, partyId: existing.partyId },
     })
 
     return NextResponse.json({ success: true, data: { message: 'Commitment deleted' } })

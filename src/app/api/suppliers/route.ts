@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { createAuditLog, AuditAction } from '@/lib/audit'
 import { createSupplierSchema, searchParamsSchema } from '@/lib/validations/repositories'
+import { orgScopedWhere, orgScopedData } from '@/lib/org-scoped'
+import { PartyRole } from '@prisma/client'
+import { generateUniqueIdentifier } from '@/lib/generate-id'
 
 export async function GET(request: Request) {
   try {
@@ -24,24 +27,22 @@ export async function GET(request: Request) {
       isActive: searchParams.get('isActive'),
     })
 
-    const where = {
+    const where = orgScopedWhere(session, {
+      partyRole: PartyRole.SUPPLIER,
       ...(params.q && {
-        OR: [
-          { name: { contains: params.q, mode: 'insensitive' as const } },
-          { code: { contains: params.q, mode: 'insensitive' as const } },
-        ],
+        name: { contains: params.q, mode: 'insensitive' as const },
       }),
       ...(params.isActive !== undefined && { isActive: params.isActive }),
-    }
+    })
 
     const [suppliers, total] = await Promise.all([
-      prisma.supplier.findMany({
+      prisma.party.findMany({
         where,
         orderBy: { [params.sortBy || 'name']: params.sortOrder },
         skip: (params.page - 1) * params.pageSize,
         take: params.pageSize,
       }),
-      prisma.supplier.count({ where }),
+      prisma.party.count({ where }),
     ])
 
     return NextResponse.json({
@@ -90,37 +91,46 @@ export async function POST(request: Request) {
       )
     }
 
-    const { name, code } = validationResult.data
+    const { name, pointOfContact, phoneNumber } = validationResult.data
 
-    const existing = await prisma.supplier.findFirst({
-      where: {
-        OR: [
-          { name: { equals: name, mode: 'insensitive' } },
-          ...(code ? [{ code: { equals: code, mode: 'insensitive' as const } }] : []),
-        ],
-      },
+    // Check for duplicates within organization
+    const existing = await prisma.party.findFirst({
+      where: orgScopedWhere(session, {
+        partyRole: PartyRole.SUPPLIER,
+        name: { equals: name, mode: 'insensitive' },
+      }),
     })
 
     if (existing) {
       return NextResponse.json(
         {
           success: false,
-          error: { code: 'DUPLICATE', message: 'A supplier with this name or code already exists' },
+          error: { code: 'DUPLICATE', message: 'A supplier with this name already exists' },
         },
         { status: 409 }
       )
     }
 
-    const supplier = await prisma.supplier.create({
-      data: { name, code },
+    // Generate unique identifier
+    const uniqueIdentifier = generateUniqueIdentifier(PartyRole.SUPPLIER)
+
+    const supplier = await prisma.party.create({
+      data: orgScopedData(session, {
+        name,
+        uniqueIdentifier,
+        pointOfContact,
+        phoneNumber,
+        partyRole: PartyRole.SUPPLIER,
+        isActive: true,
+      }),
     })
 
     await createAuditLog({
       userId: session.user.id,
       action: AuditAction.SUPPLIER_CREATED,
-      entityType: 'Supplier',
+      entityType: 'Party',
       entityId: supplier.id,
-      metadata: { name, code },
+      metadata: { name, partyRole: 'SUPPLIER' },
     })
 
     return NextResponse.json({ success: true, data: supplier }, { status: 201 })

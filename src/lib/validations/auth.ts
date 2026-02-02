@@ -27,7 +27,22 @@ export const registerSchema = z.object({
     ),
   role: z.enum(['DEMAND_PLANNER', 'SUPPLY_PLANNER'], {
     message: 'Please select a valid role',
-  }),
+  }).optional(),
+  organizationName: z
+    .string()
+    .min(1, 'Organization name is required')
+    .max(100, 'Organization name must be less than 100 characters')
+    .optional(),
+  planningCycle: z
+    .enum(['DAILY', 'WEEKLY', 'MONTHLY'], {
+      message: 'Please select a valid planning cycle',
+    })
+    .optional(),
+  weekStartDay: z
+    .enum(['SUNDAY', 'MONDAY', 'SATURDAY'], {
+      message: 'Please select a valid week start day',
+    })
+    .optional(),
 })
 
 export const loginSchema = z.object({

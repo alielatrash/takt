@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
+import { orgScopedWhere } from '@/lib/org-scoped'
 
-// Get aggregated demand targets by CITYm (for supply planning view)
+// Get aggregated demand targets by routeKey (for supply planning view)
 export async function GET(request: Request) {
   try {
     const session = await getSession()
@@ -23,76 +24,76 @@ export async function GET(request: Request) {
       )
     }
 
-    // Run queries in parallel for better performance
+    // Run queries in parallel for better performance (with org scoping)
     const [aggregatedDemand, commitments, demandForecasts] = await Promise.all([
-      // Aggregate demand forecasts by CITYm
+      // Aggregate demand forecasts by routeKey
       prisma.demandForecast.groupBy({
-        by: ['citym'],
-        where: { planningWeekId },
+        by: ['routeKey'],
+        where: orgScopedWhere(session, { planningWeekId }),
         _sum: {
-          day1Loads: true,
-          day2Loads: true,
-          day3Loads: true,
-          day4Loads: true,
-          day5Loads: true,
-          day6Loads: true,
-          day7Loads: true,
-          totalLoads: true,
+          day1Qty: true,
+          day2Qty: true,
+          day3Qty: true,
+          day4Qty: true,
+          day5Qty: true,
+          day6Qty: true,
+          day7Qty: true,
+          totalQty: true,
         },
         _count: { id: true },
       }),
       // Get all supply commitments for this week
       prisma.supplyCommitment.findMany({
-        where: { planningWeekId },
+        where: orgScopedWhere(session, { planningWeekId }),
         include: {
-          supplier: { select: { id: true, name: true, code: true } },
+          party: { select: { id: true, name: true } },
         },
       }),
-      // Get individual demand forecasts with client details for breakdown
+      // Get individual demand forecasts with party details for breakdown
       prisma.demandForecast.findMany({
-        where: { planningWeekId },
+        where: orgScopedWhere(session, { planningWeekId }),
         select: {
-          citym: true,
-          client: { select: { id: true, name: true, code: true } },
-          day1Loads: true,
-          day2Loads: true,
-          day3Loads: true,
-          day4Loads: true,
-          day5Loads: true,
-          day6Loads: true,
-          day7Loads: true,
-          totalLoads: true,
+          routeKey: true,
+          party: { select: { id: true, name: true } },
+          day1Qty: true,
+          day2Qty: true,
+          day3Qty: true,
+          day4Qty: true,
+          day5Qty: true,
+          day6Qty: true,
+          day7Qty: true,
+          totalQty: true,
         },
         orderBy: [
-          { client: { name: 'asc' } },
+          { party: { name: 'asc' } },
         ],
       }),
     ])
 
-    // Group commitments by CITYm
-    const commitmentsByCitym = commitments.reduce((acc, commitment) => {
-      if (!acc[commitment.citym]) {
-        acc[commitment.citym] = []
+    // Group commitments by routeKey
+    const commitmentsByRouteKey = commitments.reduce((acc, commitment) => {
+      if (!acc[commitment.routeKey]) {
+        acc[commitment.routeKey] = []
       }
-      acc[commitment.citym].push(commitment)
+      acc[commitment.routeKey].push(commitment)
       return acc
     }, {} as Record<string, typeof commitments>)
 
-    // Group demand forecasts by CITYm for client breakdown
-    const forecastsByCitym = demandForecasts.reduce((acc, forecast) => {
-      if (!acc[forecast.citym]) {
-        acc[forecast.citym] = []
+    // Group demand forecasts by routeKey for party breakdown
+    const forecastsByRouteKey = demandForecasts.reduce((acc, forecast) => {
+      if (!acc[forecast.routeKey]) {
+        acc[forecast.routeKey] = []
       }
-      acc[forecast.citym].push(forecast)
+      acc[forecast.routeKey].push(forecast)
       return acc
     }, {} as Record<string, typeof demandForecasts>)
 
     // Build targets with gap calculation
     const targets = aggregatedDemand.map((demand) => {
-      const citymCommitments = commitmentsByCitym[demand.citym] || []
+      const routeCommitments = commitmentsByRouteKey[demand.routeKey] || []
 
-      // Sum up all commitments for this CITYm
-      const totalCommitments = citymCommitments.reduce(
+      // Sum up all commitments for this routeKey
+      const totalCommitments = routeCommitments.reduce(
         (sums, c) => ({
           day1: sums.day1 + c.day1Committed,
           day2: sums.day2 + c.day2Committed,
@@ -107,14 +108,14 @@ export async function GET(request: Request) {
       )
 
       const target = {
-        day1: demand._sum.day1Loads ?? 0,
-        day2: demand._sum.day2Loads ?? 0,
-        day3: demand._sum.day3Loads ?? 0,
-        day4: demand._sum.day4Loads ?? 0,
-        day5: demand._sum.day5Loads ?? 0,
-        day6: demand._sum.day6Loads ?? 0,
-        day7: demand._sum.day7Loads ?? 0,
-        total: demand._sum.totalLoads ?? 0,
+        day1: demand._sum.day1Qty ?? 0,
+        day2: demand._sum.day2Qty ?? 0,
+        day3: demand._sum.day3Qty ?? 0,
+        day4: demand._sum.day4Qty ?? 0,
+        day5: demand._sum.day5Qty ?? 0,
+        day6: demand._sum.day6Qty ?? 0,
+        day7: demand._sum.day7Qty ?? 0,
+        total: demand._sum.totalQty ?? 0,
       }
 
       const gap = {
@@ -132,31 +133,31 @@ export async function GET(request: Request) {
         ? Math.round((gap.total / target.total) * 100)
         : 0
 
-      // Get client breakdown for this CITYm
-      const citymForecasts = forecastsByCitym[demand.citym] || []
-      const clientBreakdown = citymForecasts.map((f) => ({
-        client: f.client,
-        day1: f.day1Loads,
-        day2: f.day2Loads,
-        day3: f.day3Loads,
-        day4: f.day4Loads,
-        day5: f.day5Loads,
-        day6: f.day6Loads,
-        day7: f.day7Loads,
-        total: f.totalLoads,
+      // Get party breakdown for this routeKey (map to 'clients' for frontend)
+      const routeForecasts = forecastsByRouteKey[demand.routeKey] || []
+      const clientBreakdown = routeForecasts.map((f) => ({
+        client: f.party,
+        day1: f.day1Qty,
+        day2: f.day2Qty,
+        day3: f.day3Qty,
+        day4: f.day4Qty,
+        day5: f.day5Qty,
+        day6: f.day6Qty,
+        day7: f.day7Qty,
+        total: f.totalQty,
       }))
 
       return {
-        citym: demand.citym,
+        routeKey: demand.routeKey,
         forecastCount: demand._count.id,
         target,
         committed: totalCommitments,
         gap,
         gapPercent,
         clients: clientBreakdown,
-        commitments: citymCommitments.map((c) => ({
+        commitments: routeCommitments.map((c) => ({
           id: c.id,
-          supplier: c.supplier,
+          party: c.party,
           day1: c.day1Committed,
           day2: c.day2Committed,
           day3: c.day3Committed,

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
+import { orgScopedWhere } from '@/lib/org-scoped'
 
 // Clean up orphaned supply commitments (commitments with no corresponding demand forecasts)
 export async function POST(request: Request) {
@@ -29,20 +30,20 @@ export async function POST(request: Request) {
       )
     }
 
-    // Get all supply commitments for this week
+    // Get all supply commitments for this week (scoped to organization)
     const supplyCommitments = await prisma.supplyCommitment.findMany({
-      where: { planningWeekId },
-      select: { id: true, citym: true, planningWeekId: true },
+      where: orgScopedWhere(session, { planningWeekId }),
+      select: { id: true, routeKey: true, planningWeekId: true },
     })
 
     // Check each commitment to see if there are any demand forecasts for that route
     const orphanedCommitments: string[] = []
     for (const commitment of supplyCommitments) {
       const forecastCount = await prisma.demandForecast.count({
-        where: {
+        where: orgScopedWhere(session, {
           planningWeekId: commitment.planningWeekId,
-          citym: commitment.citym,
-        },
+          routeKey: commitment.routeKey,
+        }),
       })
 
       if (forecastCount === 0) {
@@ -104,7 +105,7 @@ export async function DELETE(request: Request) {
     }
 
     const result = await prisma.supplyCommitment.deleteMany({
-      where: { planningWeekId },
+      where: orgScopedWhere(session, { planningWeekId }),
     })
 
     return NextResponse.json({

@@ -25,16 +25,16 @@ interface DashboardData {
     gapPercent: number
   }
   topGapRoutes: {
-    citym: string
+    routeKey: string
     target: number
     committed: number
     gap: number
   }[]
   recentForecasts: {
     id: string
-    citym: string
-    clientName: string | null
-    totalLoads: number
+    routeKey: string
+    partyName: string | null
+    totalQty: number
     createdAt: string
   }[]
 }
@@ -184,13 +184,13 @@ export default function DashboardPage() {
                     className="flex items-center justify-between p-3 bg-muted rounded-lg"
                   >
                     <div>
-                      <p className="font-medium">{forecast.citym}</p>
+                      <p className="font-medium">{forecast.routeKey}</p>
                       <p className="text-sm text-muted-foreground">
-                        {forecast.clientName || 'Unknown client'}
+                        {forecast.partyName || 'Unknown party'}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-blue-600">{forecast.totalLoads} loads</p>
+                      <p className="font-bold text-blue-600">{forecast.totalQty} loads</p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(forecast.createdAt).toLocaleDateString()}
                       </p>
@@ -227,11 +227,11 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 {data?.topGapRoutes.map((route) => (
                   <div
-                    key={route.citym}
+                    key={route.routeKey}
                     className="flex items-center justify-between p-3 bg-muted rounded-lg"
                   >
                     <div>
-                      <p className="font-medium">{route.citym}</p>
+                      <p className="font-medium">{route.routeKey}</p>
                       <p className="text-sm text-muted-foreground">
                         Target: {route.target} | Committed: {route.committed}
                       </p>

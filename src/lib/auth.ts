@@ -45,6 +45,7 @@ export async function getSession(): Promise<Session | null> {
             lastName: true,
             role: true,
             avatarUrl: true,
+            currentOrgId: true,
           },
         },
       },
@@ -58,6 +59,34 @@ export async function getSession(): Promise<Session | null> {
       return null
     }
 
+    // Get user's organization memberships
+    const memberships = await prisma.organizationMember.findMany({
+      where: { userId: session.user.id },
+      include: {
+        organization: {
+          select: { id: true, name: true, slug: true },
+        },
+      },
+    })
+
+    // If user has no memberships, return null (shouldn't happen in normal flow)
+    if (memberships.length === 0) {
+      return null
+    }
+
+    // If user has no currentOrgId, set it to their first org
+    let currentOrgId = session.user.currentOrgId
+    if (!currentOrgId) {
+      currentOrgId = memberships[0].organizationId
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: { currentOrgId },
+      }).catch(() => {})
+    }
+
+    // Find the current organization membership
+    const currentMembership = memberships.find(m => m.organizationId === currentOrgId) || memberships[0]
+
     // Update last active asynchronously (don't block the response)
     // Only update if last active was more than 5 minutes ago
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
@@ -70,7 +99,12 @@ export async function getSession(): Promise<Session | null> {
     }
 
     return {
-      user: session.user as SessionUser,
+      user: {
+        ...session.user,
+        currentOrgId: currentMembership.organizationId,
+        currentOrgRole: currentMembership.role,
+        currentOrgName: currentMembership.organization.name,
+      } as SessionUser,
       sessionId: session.id,
     }
   } catch (error) {

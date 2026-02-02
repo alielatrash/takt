@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { Client, Supplier, City, TruckType } from '@prisma/client'
+import type { Party, Location, ResourceType } from '@prisma/client'
 
 interface PaginatedResponse<T> {
   success: boolean
@@ -43,7 +43,7 @@ async function fetchData<T>(
 export function useClients(params: SearchParams = {}, enabled: boolean = true) {
   return useQuery({
     queryKey: ['clients', params],
-    queryFn: () => fetchData<Client>('/api/clients', params),
+    queryFn: () => fetchData<Party>('/api/clients', params),
     enabled,
     staleTime: 60 * 60 * 1000, // 1 hour - master data rarely changes
     gcTime: 2 * 60 * 60 * 1000, // 2 hours in cache
@@ -53,7 +53,7 @@ export function useClients(params: SearchParams = {}, enabled: boolean = true) {
 export function useCreateClient() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (data: { name: string; code?: string }) => {
+    mutationFn: async (data: { name: string; code?: string; pointOfContact?: string; phoneNumber?: string }) => {
       const response = await fetch('/api/clients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -73,7 +73,7 @@ export function useCreateClient() {
 export function useUpdateClient() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...data }: { id: string; name?: string; code?: string }) => {
+    mutationFn: async ({ id, ...data }: { id: string; name?: string; code?: string; pointOfContact?: string; phoneNumber?: string }) => {
       const response = await fetch(`/api/clients/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -109,7 +109,7 @@ export function useDeleteClient() {
 export function useSuppliers(params: SearchParams = {}, enabled: boolean = true) {
   return useQuery({
     queryKey: ['suppliers', params],
-    queryFn: () => fetchData<Supplier>('/api/suppliers', params),
+    queryFn: () => fetchData<Party>('/api/suppliers', params),
     enabled,
     staleTime: 60 * 60 * 1000, // 1 hour - master data rarely changes
     gcTime: 2 * 60 * 60 * 1000, // 2 hours in cache
@@ -119,7 +119,7 @@ export function useSuppliers(params: SearchParams = {}, enabled: boolean = true)
 export function useCreateSupplier() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (data: { name: string; code?: string }) => {
+    mutationFn: async (data: { name: string; code?: string; pointOfContact?: string; phoneNumber?: string }) => {
       const response = await fetch('/api/suppliers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -139,7 +139,7 @@ export function useCreateSupplier() {
 export function useUpdateSupplier() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...data }: { id: string; name?: string; code?: string }) => {
+    mutationFn: async ({ id, ...data }: { id: string; name?: string; code?: string; pointOfContact?: string; phoneNumber?: string }) => {
       const response = await fetch(`/api/suppliers/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -175,7 +175,7 @@ export function useDeleteSupplier() {
 export function useCities(params: SearchParams = {}, enabled: boolean = true) {
   return useQuery({
     queryKey: ['cities', params],
-    queryFn: () => fetchData<City>('/api/cities', params),
+    queryFn: () => fetchData<Location>('/api/cities', params),
     enabled,
     staleTime: 60 * 60 * 1000, // 1 hour - master data rarely changes
     gcTime: 2 * 60 * 60 * 1000, // 2 hours in cache
@@ -241,7 +241,7 @@ export function useDeleteCity() {
 export function useTruckTypes(params: SearchParams = {}, enabled: boolean = true) {
   return useQuery({
     queryKey: ['truckTypes', params],
-    queryFn: () => fetchData<TruckType>('/api/truck-types', params),
+    queryFn: () => fetchData<ResourceType>('/api/truck-types', params),
     enabled,
     staleTime: 60 * 60 * 1000, // 1 hour - master data rarely changes
     gcTime: 2 * 60 * 60 * 1000, // 2 hours in cache

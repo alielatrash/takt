@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { createAuditLog, AuditAction } from '@/lib/audit'
 import { updateSupplierSchema } from '@/lib/validations/repositories'
+import { orgScopedWhere, verifyOrgOwnership } from '@/lib/org-scoped'
+import { PartyRole } from '@prisma/client'
 
 type RouteParams = { params: Promise<{ id: string }> }
 
@@ -17,9 +19,18 @@ export async function GET(request: Request, { params }: RouteParams) {
     }
 
     const { id } = await params
-    const supplier = await prisma.supplier.findUnique({ where: { id } })
+    const supplier = await prisma.party.findUnique({ where: { id } })
 
     if (!supplier) {
+      return NextResponse.json(
+        { success: false, error: { code: 'NOT_FOUND', message: 'Supplier not found' } },
+        { status: 404 }
+      )
+    }
+
+    // Verify ownership and party role
+    verifyOrgOwnership(session, supplier)
+    if (supplier.partyRole !== PartyRole.SUPPLIER) {
       return NextResponse.json(
         { success: false, error: { code: 'NOT_FOUND', message: 'Supplier not found' } },
         { status: 404 }
@@ -64,7 +75,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       )
     }
 
-    const existing = await prisma.supplier.findUnique({ where: { id } })
+    const existing = await prisma.party.findUnique({ where: { id } })
     if (!existing) {
       return NextResponse.json(
         { success: false, error: { code: 'NOT_FOUND', message: 'Supplier not found' } },
@@ -72,41 +83,53 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       )
     }
 
-    const { name, code } = validationResult.data
+    // Verify ownership and party role
+    verifyOrgOwnership(session, existing)
+    if (existing.partyRole !== PartyRole.SUPPLIER) {
+      return NextResponse.json(
+        { success: false, error: { code: 'NOT_FOUND', message: 'Supplier not found' } },
+        { status: 404 }
+      )
+    }
 
-    if (name || code) {
-      const duplicate = await prisma.supplier.findFirst({
-        where: {
+    const { name, pointOfContact, phoneNumber } = validationResult.data
+
+    // Check for duplicates within organization (excluding current record)
+    if (name) {
+      const duplicate = await prisma.party.findFirst({
+        where: orgScopedWhere(session, {
           id: { not: id },
-          OR: [
-            ...(name ? [{ name: { equals: name, mode: 'insensitive' as const } }] : []),
-            ...(code ? [{ code: { equals: code, mode: 'insensitive' as const } }] : []),
-          ],
-        },
+          partyRole: PartyRole.SUPPLIER,
+          name: { equals: name, mode: 'insensitive' },
+        }),
       })
 
       if (duplicate) {
         return NextResponse.json(
           {
             success: false,
-            error: { code: 'DUPLICATE', message: 'A supplier with this name or code already exists' },
+            error: { code: 'DUPLICATE', message: 'A supplier with this name already exists' },
           },
           { status: 409 }
         )
       }
     }
 
-    const supplier = await prisma.supplier.update({
+    const supplier = await prisma.party.update({
       where: { id },
-      data: validationResult.data,
+      data: {
+        ...(name !== undefined && { name }),
+        ...(pointOfContact !== undefined && { pointOfContact }),
+        ...(phoneNumber !== undefined && { phoneNumber }),
+      },
     })
 
     await createAuditLog({
       userId: session.user.id,
       action: AuditAction.SUPPLIER_UPDATED,
-      entityType: 'Supplier',
+      entityType: 'Party',
       entityId: supplier.id,
-      metadata: { before: existing, after: supplier },
+      metadata: { before: existing, after: supplier, partyRole: 'SUPPLIER' },
     })
 
     return NextResponse.json({ success: true, data: supplier })
@@ -130,7 +153,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     }
 
     const { id } = await params
-    const existing = await prisma.supplier.findUnique({ where: { id } })
+    const existing = await prisma.party.findUnique({ where: { id } })
 
     if (!existing) {
       return NextResponse.json(
@@ -139,7 +162,17 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       )
     }
 
-    const supplier = await prisma.supplier.update({
+    // Verify ownership and party role
+    verifyOrgOwnership(session, existing)
+    if (existing.partyRole !== PartyRole.SUPPLIER) {
+      return NextResponse.json(
+        { success: false, error: { code: 'NOT_FOUND', message: 'Supplier not found' } },
+        { status: 404 }
+      )
+    }
+
+    // Soft delete by setting isActive to false
+    const supplier = await prisma.party.update({
       where: { id },
       data: { isActive: false },
     })
@@ -147,9 +180,9 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     await createAuditLog({
       userId: session.user.id,
       action: AuditAction.SUPPLIER_DELETED,
-      entityType: 'Supplier',
+      entityType: 'Party',
       entityId: supplier.id,
-      metadata: { name: existing.name },
+      metadata: { name: existing.name, partyRole: 'SUPPLIER' },
     })
 
     return NextResponse.json({ success: true, data: { message: 'Supplier deactivated' } })

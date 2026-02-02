@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -32,16 +32,25 @@ import {
 } from '@/components/ui/select'
 import { Combobox } from '@/components/ui/combobox'
 import { useClients, useCities, useTruckTypes } from '@/hooks/use-repositories'
-import { useCreateDemandForecast, useUpdateDemandForecast } from '@/hooks/use-demand'
+import { useCreateDemandForecast, useUpdateDemandForecast, usePlanningWeeks } from '@/hooks/use-demand'
 import { createDemandForecastSchema, type CreateDemandForecastInput } from '@/lib/validations/demand'
 import { WEEK_DAYS } from '@/types'
-import type { DemandForecast, Client, City, TruckType } from '@prisma/client'
+import type { DemandForecast, Party, Location, ResourceType } from '@prisma/client'
+import { format, addWeeks, startOfMonth } from 'date-fns'
+import { ClientQuickCreateDialog } from '@/components/repositories/client-quick-create-dialog'
+
+const MONTH_WEEKS = [
+  { key: 'week1', label: 'Week 1' },
+  { key: 'week2', label: 'Week 2' },
+  { key: 'week3', label: 'Week 3' },
+  { key: 'week4', label: 'Week 4' },
+]
 
 interface DemandForecastWithRelations extends DemandForecast {
-  client: Pick<Client, 'id' | 'name' | 'code'>
-  pickupCity: Pick<City, 'id' | 'name' | 'code' | 'region'>
-  dropoffCity: Pick<City, 'id' | 'name' | 'code' | 'region'>
-  truckType: Pick<TruckType, 'id' | 'name'>
+  party: Pick<Party, 'id' | 'name'>
+  pickupLocation: Pick<Location, 'id' | 'name' | 'code' | 'region'>
+  dropoffLocation: Pick<Location, 'id' | 'name' | 'code' | 'region'>
+  resourceType: Pick<ResourceType, 'id' | 'name'>
 }
 
 interface DemandFormDialogProps {
@@ -52,13 +61,18 @@ interface DemandFormDialogProps {
 }
 
 export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast }: DemandFormDialogProps) {
+  const [isClientDialogOpen, setIsClientDialogOpen] = useState(false)
+
   // Only fetch data when dialog is open (prevents loading too many records on page load)
   const { data: clients } = useClients({ isActive: true, pageSize: 10000 }, open)
   const { data: cities } = useCities({ isActive: true, pageSize: 10000 }, open)
   const { data: truckTypes } = useTruckTypes({ isActive: true, pageSize: 1000 }, open)
+  const { data: planningWeeksData } = usePlanningWeeks()
   const createMutation = useCreateDemandForecast()
   const updateMutation = useUpdateDemandForecast()
 
+  const planningCycle = planningWeeksData?.meta?.planningCycle || 'WEEKLY'
+  const isMonthlyPlanning = planningCycle === 'MONTHLY'
   const isEditMode = !!forecast
 
   const form = useForm<CreateDemandForecastInput>({
@@ -77,6 +91,10 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
       day5Loads: 0,
       day6Loads: 0,
       day7Loads: 0,
+      week1Loads: 0,
+      week2Loads: 0,
+      week3Loads: 0,
+      week4Loads: 0,
     },
   })
 
@@ -85,7 +103,7 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
     clients?.data?.map((client) => ({
       value: client.id,
       label: client.name,
-      description: client.code || undefined,
+      description: client.uniqueIdentifier || undefined,
     })) ?? [],
     [clients]
   )
@@ -107,23 +125,48 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
     [truckTypes]
   )
 
+  // Calculate week date ranges for monthly planning
+  const weekDateRanges = useMemo(() => {
+    if (!isMonthlyPlanning || !planningWeeksData?.data) return []
+
+    const selectedWeek = planningWeeksData.data.find(w => w.id === planningWeekId)
+    if (!selectedWeek) return []
+
+    const monthStart = new Date(selectedWeek.weekStart)
+
+    return MONTH_WEEKS.map((_, index) => {
+      const weekStartDate = addWeeks(monthStart, index)
+      const weekEndDate = addWeeks(weekStartDate, 1)
+      weekEndDate.setDate(weekEndDate.getDate() - 1) // End on the last day of the week
+
+      return {
+        start: format(weekStartDate, 'd'),  // Just day number
+        end: format(weekEndDate, 'd')       // Just day number
+      }
+    })
+  }, [isMonthlyPlanning, planningWeeksData, planningWeekId])
+
   useEffect(() => {
     if (open && planningWeekId) {
       if (forecast) {
         form.reset({
           planningWeekId,
-          clientId: forecast.clientId,
-          pickupCityId: forecast.pickupCityId,
-          dropoffCityId: forecast.dropoffCityId,
+          clientId: forecast.partyId,
+          pickupCityId: forecast.pickupLocationId,
+          dropoffCityId: forecast.dropoffLocationId,
           vertical: forecast.vertical as 'DOMESTIC' | 'PORTS',
-          truckTypeId: forecast.truckTypeId,
-          day1Loads: forecast.day1Loads,
-          day2Loads: forecast.day2Loads,
-          day3Loads: forecast.day3Loads,
-          day4Loads: forecast.day4Loads,
-          day5Loads: forecast.day5Loads,
-          day6Loads: forecast.day6Loads,
-          day7Loads: forecast.day7Loads,
+          truckTypeId: forecast.resourceTypeId,
+          day1Loads: forecast.day1Qty,
+          day2Loads: forecast.day2Qty,
+          day3Loads: forecast.day3Qty,
+          day4Loads: forecast.day4Qty,
+          day5Loads: forecast.day5Qty,
+          day6Loads: forecast.day6Qty,
+          day7Loads: forecast.day7Qty,
+          week1Loads: forecast.week1Qty,
+          week2Loads: forecast.week2Qty,
+          week3Loads: forecast.week3Qty,
+          week4Loads: forecast.week4Qty,
         })
       } else {
         form.reset({
@@ -140,6 +183,10 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
           day5Loads: 0,
           day6Loads: 0,
           day7Loads: 0,
+          week1Loads: 0,
+          week2Loads: 0,
+          week3Loads: 0,
+          week4Loads: 0,
         })
       }
     }
@@ -203,6 +250,18 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
                         placeholder="Search client..."
                         searchPlaceholder="Type to search..."
                         emptyText="No clients found."
+                        footerAction={
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start text-xs"
+                            onClick={() => setIsClientDialogOpen(true)}
+                          >
+                            <Plus className="mr-2 h-3 w-3" />
+                            Add new client
+                          </Button>
+                        }
                       />
                     </FormControl>
                     <FormMessage />
@@ -299,30 +358,65 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
             />
 
             <div>
-              <FormLabel>Daily Loads (Sun-Sat)</FormLabel>
-              <div className="grid grid-cols-7 gap-2 mt-2">
-                {WEEK_DAYS.map((day, index) => (
-                  <FormField
-                    key={day.key}
-                    control={form.control}
-                    name={`day${index + 1}Loads` as keyof CreateDemandForecastInput}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs text-muted-foreground">{day.label}</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="0"
-                            className="text-center"
-                            {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                ))}
-              </div>
+              <FormLabel>{isMonthlyPlanning ? 'Weekly Loads (Week 1-4)' : 'Daily Loads (Sun-Sat)'}</FormLabel>
+              {isMonthlyPlanning ? (
+                // Monthly planning: Show week inputs
+                <div className="grid grid-cols-4 gap-2 mt-2">
+                  {MONTH_WEEKS.map((week, index) => (
+                    <FormField
+                      key={week.key}
+                      control={form.control}
+                      name={`week${index + 1}Loads` as any}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-muted-foreground">
+                            {week.label}
+                            {weekDateRanges[index] && (
+                              <div className="text-[10px]">
+                                days {weekDateRanges[index].start}-{weekDateRanges[index].end}
+                              </div>
+                            )}
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="0"
+                              className="text-center"
+                              {...field}
+                              onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  ))}
+                </div>
+              ) : (
+                // Weekly planning: Show day inputs
+                <div className="grid grid-cols-7 gap-2 mt-2">
+                  {WEEK_DAYS.map((day, index) => (
+                    <FormField
+                      key={day.key}
+                      control={form.control}
+                      name={`day${index + 1}Loads` as keyof CreateDemandForecastInput}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-muted-foreground">{day.label}</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="0"
+                              className="text-center"
+                              {...field}
+                              onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
             <DialogFooter>
@@ -337,6 +431,15 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
           </form>
         </Form>
       </DialogContent>
+
+      <ClientQuickCreateDialog
+        open={isClientDialogOpen}
+        onOpenChange={setIsClientDialogOpen}
+        onSuccess={(client) => {
+          form.setValue('clientId', client.id)
+          toast.success(`Client "${client.name}" selected`)
+        }}
+      />
     </Dialog>
   )
 }

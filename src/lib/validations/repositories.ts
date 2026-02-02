@@ -3,7 +3,8 @@ import { z } from 'zod'
 // Client validations
 export const createClientSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name must be less than 100 characters'),
-  code: z.string().max(20, 'Code must be less than 20 characters').optional(),
+  pointOfContact: z.string().max(100, 'Point of contact must be less than 100 characters').optional(),
+  phoneNumber: z.string().max(20, 'Phone number must be less than 20 characters').optional(),
 })
 
 export const updateClientSchema = createClientSchema.partial()
@@ -14,7 +15,13 @@ export type UpdateClientInput = z.infer<typeof updateClientSchema>
 // Supplier validations
 export const createSupplierSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name must be less than 100 characters'),
-  code: z.string().max(20, 'Code must be less than 20 characters').optional(),
+  pointOfContact: z.string().max(100, 'Point of contact must be less than 100 characters').optional(),
+  phoneNumber: z.string().max(20, 'Phone number must be less than 20 characters').optional(),
+  capacity: z.union([
+    z.string().transform(v => v === '' ? undefined : parseInt(v, 10)),
+    z.number()
+  ]).optional(),
+  capacityType: z.string().max(100, 'Capacity type must be less than 100 characters').optional(),
 })
 
 export const updateSupplierSchema = createSupplierSchema.partial()

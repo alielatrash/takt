@@ -80,7 +80,7 @@ export async function notifyDemandPlannerOfSupply(
     const forecasts = await prisma.demandForecast.findMany({
       where: {
         planningWeekId,
-        citym,
+        routeKey: citym,
       },
       select: {
         createdById: true,

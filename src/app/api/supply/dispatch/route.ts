@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
+import { orgScopedWhere } from '@/lib/org-scoped'
 
 export async function GET(request: Request) {
   try {
@@ -22,38 +23,36 @@ export async function GET(request: Request) {
       )
     }
 
-    // Get all supply commitments for the week, grouped by supplier
+    // Get all supply commitments for the week, grouped by supplier (with org scoping)
     const commitments = await prisma.supplyCommitment.findMany({
-      where: { planningWeekId },
+      where: orgScopedWhere(session, { planningWeekId }),
       include: {
-        supplier: { select: { id: true, name: true, code: true } },
+        party: { select: { id: true, name: true } },
       },
       orderBy: [
-        { supplier: { name: 'asc' } },
-        { citym: 'asc' },
+        { party: { name: 'asc' } },
+        { routeKey: 'asc' },
       ],
     })
 
     // Group by supplier
     const supplierMap = new Map<string, {
-      supplierId: string
-      supplierName: string
-      supplierCode: string | null
+      partyId: string
+      partyName: string
       routes: Array<{
-        citym: string
+        routeKey: string
         plan: { day1: number; day2: number; day3: number; day4: number; day5: number; day6: number; day7: number; total: number }
       }>
       totals: { day1: number; day2: number; day3: number; day4: number; day5: number; day6: number; day7: number; total: number }
     }>()
 
     for (const commitment of commitments) {
-      const key = commitment.supplierId
+      const key = commitment.partyId
 
       if (!supplierMap.has(key)) {
         supplierMap.set(key, {
-          supplierId: commitment.supplier.id,
-          supplierName: commitment.supplier.name,
-          supplierCode: commitment.supplier.code,
+          partyId: commitment.party.id,
+          partyName: commitment.party.name,
           routes: [],
           totals: { day1: 0, day2: 0, day3: 0, day4: 0, day5: 0, day6: 0, day7: 0, total: 0 },
         })
@@ -73,7 +72,7 @@ export async function GET(request: Request) {
       }
 
       supplier.routes.push({
-        citym: commitment.citym,
+        routeKey: commitment.routeKey,
         plan: routePlan,
       })
 
@@ -88,9 +87,9 @@ export async function GET(request: Request) {
       supplier.totals.total += commitment.totalCommitted
     }
 
-    // Convert to array and sort by supplier name
+    // Convert to array and sort by party name
     const dispatchData = Array.from(supplierMap.values()).sort((a, b) =>
-      a.supplierName.localeCompare(b.supplierName)
+      a.partyName.localeCompare(b.partyName)
     )
 
     // Calculate grand totals
@@ -108,10 +107,18 @@ export async function GET(request: Request) {
       grandTotals.total += supplier.totals.total
     }
 
+    // Map field names to match frontend expectations
+    const suppliers = dispatchData.map(supplier => ({
+      supplierId: supplier.partyId,
+      supplierName: supplier.partyName,
+      routes: supplier.routes,
+      totals: supplier.totals,
+    }))
+
     return NextResponse.json({
       success: true,
       data: {
-        suppliers: dispatchData,
+        suppliers,
         grandTotals,
       },
     })

@@ -33,8 +33,8 @@ export default function SupplyPlanningPage() {
     }
   }, [weeksData, selectedWeekId])
 
-  const handleAddCommitment = (citym: string) => {
-    setSelectedCitym(citym)
+  const handleAddCommitment = (routeKey: string) => {
+    setSelectedCitym(routeKey)
     setIsDialogOpen(true)
   }
 
@@ -71,7 +71,7 @@ export default function SupplyPlanningPage() {
     ]
 
     const rows = targetsData.data.map(t => [
-      t.citym,
+      t.routeKey,
       t.target.day1,
       t.target.day2,
       t.target.day3,
@@ -149,6 +149,7 @@ export default function SupplyPlanningPage() {
   const totalGap = totalTarget - totalCommitted
   const gapPercent = totalTarget > 0 ? Math.round((totalGap / totalTarget) * 100) : 0
   const routeCount = targetsData?.data?.length ?? 0
+  const planningCycle = weeksData?.meta?.planningCycle || 'WEEKLY'
 
   return (
     <div>
@@ -213,7 +214,7 @@ export default function SupplyPlanningPage() {
           open={isDialogOpen}
           onOpenChange={setIsDialogOpen}
           planningWeekId={selectedWeekId}
-          citym={selectedCitym}
+          routeKey={selectedCitym}
         />
       )}
     </div>

@@ -27,7 +27,21 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(git remote set-url:*)",
-      "Bash(npx prisma db seed:*)"
+      "Bash(npx prisma db seed:*)",
+      "Bash(npx vercel:*)",
+      "Bash(git rm:*)",
+      "Bash(wc:*)",
+      "Bash(npx prisma format:*)",
+      "Bash(grep:*)",
+      "Bash(test:*)",
+      "Bash(chmod:*)",
+      "Bash(/tmp/update-repository-pages.sh)",
+      "Bash(head:*)",
+      "Bash(xargs:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(node /tmp/check-db.mjs:*)",
+      "Bash(node check-db.mjs:*)",
+      "Bash(npm run db:push:*)"
     ]
   }
 }

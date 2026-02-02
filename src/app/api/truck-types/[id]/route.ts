@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { createAuditLog, AuditAction } from '@/lib/audit'
 import { updateTruckTypeSchema } from '@/lib/validations/repositories'
+import { orgScopedWhere, verifyOrgOwnership } from '@/lib/org-scoped'
 
 type RouteParams = { params: Promise<{ id: string }> }
 
@@ -17,7 +18,7 @@ export async function GET(request: Request, { params }: RouteParams) {
     }
 
     const { id } = await params
-    const truckType = await prisma.truckType.findUnique({ where: { id } })
+    const truckType = await prisma.resourceType.findUnique({ where: { id } })
 
     if (!truckType) {
       return NextResponse.json(
@@ -25,6 +26,9 @@ export async function GET(request: Request, { params }: RouteParams) {
         { status: 404 }
       )
     }
+
+    // Verify ownership
+    verifyOrgOwnership(session, truckType)
 
     return NextResponse.json({ success: true, data: truckType })
   } catch (error) {
@@ -64,7 +68,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       )
     }
 
-    const existing = await prisma.truckType.findUnique({ where: { id } })
+    const existing = await prisma.resourceType.findUnique({ where: { id } })
     if (!existing) {
       return NextResponse.json(
         { success: false, error: { code: 'NOT_FOUND', message: 'Truck type not found' } },
@@ -72,14 +76,18 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       )
     }
 
+    // Verify ownership
+    verifyOrgOwnership(session, existing)
+
     const { name } = validationResult.data
 
+    // Check for duplicates within organization (excluding current record)
     if (name) {
-      const duplicate = await prisma.truckType.findFirst({
-        where: {
+      const duplicate = await prisma.resourceType.findFirst({
+        where: orgScopedWhere(session, {
           id: { not: id },
           name: { equals: name, mode: 'insensitive' },
-        },
+        }),
       })
 
       if (duplicate) {
@@ -93,7 +101,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       }
     }
 
-    const truckType = await prisma.truckType.update({
+    const truckType = await prisma.resourceType.update({
       where: { id },
       data: validationResult.data,
     })
@@ -101,7 +109,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     await createAuditLog({
       userId: session.user.id,
       action: AuditAction.TRUCK_TYPE_UPDATED,
-      entityType: 'TruckType',
+      entityType: 'ResourceType',
       entityId: truckType.id,
       metadata: { before: existing, after: truckType },
     })
@@ -127,7 +135,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     }
 
     const { id } = await params
-    const existing = await prisma.truckType.findUnique({ where: { id } })
+    const existing = await prisma.resourceType.findUnique({ where: { id } })
 
     if (!existing) {
       return NextResponse.json(
@@ -136,7 +144,11 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       )
     }
 
-    const truckType = await prisma.truckType.update({
+    // Verify ownership
+    verifyOrgOwnership(session, existing)
+
+    // Soft delete by setting isActive to false
+    const truckType = await prisma.resourceType.update({
       where: { id },
       data: { isActive: false },
     })
@@ -144,7 +156,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     await createAuditLog({
       userId: session.user.id,
       action: AuditAction.TRUCK_TYPE_DELETED,
-      entityType: 'TruckType',
+      entityType: 'ResourceType',
       entityId: truckType.id,
       metadata: { name: existing.name },
     })

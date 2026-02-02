@@ -11,8 +11,9 @@ export default async function AuthLayout({
 }) {
   const session = await getSession()
 
+  // Redirect authenticated users directly to dashboard
   if (session) {
-    redirect('/')
+    redirect('/dashboard')
   }
 
   return (

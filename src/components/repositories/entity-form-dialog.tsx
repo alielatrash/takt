@@ -21,14 +21,17 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { usePhoneValidation } from '@/hooks/use-phone-validation'
 
 interface FormFieldConfig {
   name: string
   label: string
   placeholder?: string
   required?: boolean
+  type?: 'text' | 'phone' | 'number'
 }
 
 interface EntityFormDialogProps<T extends FieldValues> {
@@ -57,6 +60,8 @@ export function EntityFormDialog<T extends FieldValues>({
   isLoading,
   isEdit = false,
 }: EntityFormDialogProps<T>) {
+  const { config: phoneConfig } = usePhoneValidation()
+
   const form = useForm<T>({
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     resolver: zodResolver(schema),
@@ -88,29 +93,41 @@ export function EntityFormDialog<T extends FieldValues>({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            {fields.map((field) => (
-              <FormField
-                key={field.name}
-                control={form.control}
-                name={field.name as never}
-                render={({ field: formField }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {field.label}
-                      {field.required && <span className="text-destructive ml-1">*</span>}
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder={field.placeholder}
-                        {...formField}
-                        value={formField.value as string || ''}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            ))}
+            {fields.map((field) => {
+              const isPhoneField = field.type === 'phone' || field.name === 'phoneNumber'
+              const isNumberField = field.type === 'number'
+              const placeholder = isPhoneField ? phoneConfig.placeholder : field.placeholder
+
+              return (
+                <FormField
+                  key={field.name}
+                  control={form.control}
+                  name={field.name as never}
+                  render={({ field: formField }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {field.label}
+                        {field.required && <span className="text-destructive ml-1">*</span>}
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type={isNumberField ? 'number' : 'text'}
+                          placeholder={placeholder}
+                          {...formField}
+                          value={formField.value as string || ''}
+                        />
+                      </FormControl>
+                      {isPhoneField && (
+                        <FormDescription className="text-xs">
+                          Format: {phoneConfig.placeholder}
+                        </FormDescription>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )
+            })}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel

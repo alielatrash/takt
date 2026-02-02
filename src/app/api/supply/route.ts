@@ -4,6 +4,7 @@ import { getSession, hasPermission } from '@/lib/auth'
 import { createAuditLog, AuditAction } from '@/lib/audit'
 import { createSupplyCommitmentSchema } from '@/lib/validations/supply'
 import { notifyDemandPlannerOfSupply } from '@/lib/notifications'
+import { orgScopedWhere, orgScopedData } from '@/lib/org-scoped'
 
 export async function GET(request: Request) {
   try {
@@ -17,26 +18,26 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const planningWeekId = searchParams.get('planningWeekId')
-    const citym = searchParams.get('citym')
-    const supplierId = searchParams.get('supplierId')
+    const routeKey = searchParams.get('citym') || searchParams.get('routeKey')
+    const partyId = searchParams.get('supplierId') || searchParams.get('partyId')
 
-    const where = {
+    const where = orgScopedWhere(session, {
       ...(planningWeekId && { planningWeekId }),
-      ...(citym && { citym }),
-      ...(supplierId && { supplierId }),
-    }
+      ...(routeKey && { routeKey }),
+      ...(partyId && { partyId }),
+    })
 
     const commitments = await prisma.supplyCommitment.findMany({
       where,
       include: {
-        supplier: { select: { id: true, name: true, code: true } },
-        truckType: { select: { id: true, name: true } },
+        party: { select: { id: true, name: true } },
+        resourceType: { select: { id: true, name: true } },
         planningWeek: { select: { id: true, weekStart: true, weekEnd: true } },
         createdBy: { select: { id: true, firstName: true, lastName: true } },
       },
       orderBy: [
-        { citym: 'asc' },
-        { supplier: { name: 'asc' } },
+        { routeKey: 'asc' },
+        { party: { name: 'asc' } },
       ],
     })
 
@@ -89,16 +90,16 @@ export async function POST(request: Request) {
 
     const data = validationResult.data
 
-    // Run validation queries in parallel
+    // Run validation queries in parallel (with org scoping)
     const [planningWeek, existing] = await Promise.all([
-      prisma.planningWeek.findUnique({ where: { id: data.planningWeekId } }),
+      prisma.planningWeek.findFirst({ where: orgScopedWhere(session, { id: data.planningWeekId }) }),
       prisma.supplyCommitment.findFirst({
-        where: {
+        where: orgScopedWhere(session, {
           planningWeekId: data.planningWeekId,
-          supplierId: data.supplierId,
-          citym: data.citym,
-          truckTypeId: data.truckTypeId || null,
-        },
+          partyId: data.supplierId,
+          routeKey: data.routeKey,
+          resourceTypeId: data.truckTypeId || null,
+        }),
       }),
     ])
 
@@ -123,18 +124,37 @@ export async function POST(request: Request) {
       )
     }
 
-    const totalCommitted = data.day1Committed + data.day2Committed + data.day3Committed +
-                           data.day4Committed + data.day5Committed + data.day6Committed + data.day7Committed
+    // Calculate total from either day or week fields
+    const dayTotal = (data.day1Committed || 0) + (data.day2Committed || 0) + (data.day3Committed || 0) +
+                     (data.day4Committed || 0) + (data.day5Committed || 0) + (data.day6Committed || 0) + (data.day7Committed || 0)
+    const weekTotal = (data.week1Committed || 0) + (data.week2Committed || 0) + (data.week3Committed || 0) +
+                      (data.week4Committed || 0) + (data.week5Committed || 0)
+    const totalCommitted = dayTotal > 0 ? dayTotal : weekTotal
 
     const commitment = await prisma.supplyCommitment.create({
-      data: {
-        ...data,
+      data: orgScopedData(session, {
+        planningWeekId: data.planningWeekId,
+        partyId: data.supplierId,
+        routeKey: data.routeKey,
+        resourceTypeId: data.truckTypeId,
+        day1Committed: data.day1Committed || 0,
+        day2Committed: data.day2Committed || 0,
+        day3Committed: data.day3Committed || 0,
+        day4Committed: data.day4Committed || 0,
+        day5Committed: data.day5Committed || 0,
+        day6Committed: data.day6Committed || 0,
+        day7Committed: data.day7Committed || 0,
+        week1Committed: data.week1Committed || 0,
+        week2Committed: data.week2Committed || 0,
+        week3Committed: data.week3Committed || 0,
+        week4Committed: data.week4Committed || 0,
+        week5Committed: data.week5Committed || 0,
         totalCommitted,
         createdById: session.user.id,
-      },
+      }),
       include: {
-        supplier: { select: { id: true, name: true, code: true } },
-        truckType: { select: { id: true, name: true } },
+        party: { select: { id: true, name: true } },
+        resourceType: { select: { id: true, name: true } },
         planningWeek: { select: { id: true, weekStart: true, weekEnd: true } },
         createdBy: { select: { id: true, firstName: true, lastName: true } },
       },
@@ -146,14 +166,14 @@ export async function POST(request: Request) {
       action: AuditAction.SUPPLY_COMMITTED,
       entityType: 'SupplyCommitment',
       entityId: commitment.id,
-      metadata: { citym: data.citym, totalCommitted, supplierId: data.supplierId },
+      metadata: { routeKey: data.routeKey, totalCommitted, partyId: data.supplierId },
     }).catch((err) => console.error('Failed to create audit log:', err))
 
     // Notify demand planners who created forecasts for this route
     notifyDemandPlannerOfSupply(
       commitment.id,
-      data.citym,
-      commitment.supplier.name,
+      data.routeKey,
+      commitment.party.name,
       `${session.user.firstName} ${session.user.lastName}`,
       data.planningWeekId
     ).catch((err) => console.error('Failed to send notifications:', err))

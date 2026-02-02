@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { createAuditLog, AuditAction } from '@/lib/audit'
 import { createClientSchema, searchParamsSchema } from '@/lib/validations/repositories'
+import { orgScopedWhere, orgScopedData } from '@/lib/org-scoped'
+import { PartyRole } from '@prisma/client'
+import { generateUniqueIdentifier } from '@/lib/generate-id'
 
 export async function GET(request: Request) {
   try {
@@ -24,24 +27,23 @@ export async function GET(request: Request) {
       isActive: searchParams.get('isActive'),
     })
 
-    const where = {
+    const where = orgScopedWhere(session, {
+      partyRole: PartyRole.CUSTOMER,
       ...(params.q && {
-        OR: [
-          { name: { contains: params.q, mode: 'insensitive' as const } },
-          { code: { contains: params.q, mode: 'insensitive' as const } },
-        ],
+        name: { contains: params.q, mode: 'insensitive' as const },
       }),
-      ...(params.isActive !== undefined && { isActive: params.isActive }),
-    }
+      // Default to showing only active clients unless explicitly specified
+      isActive: params.isActive !== undefined ? params.isActive : true,
+    })
 
     const [clients, total] = await Promise.all([
-      prisma.client.findMany({
+      prisma.party.findMany({
         where,
         orderBy: { [params.sortBy || 'name']: params.sortOrder },
         skip: (params.page - 1) * params.pageSize,
         take: params.pageSize,
       }),
-      prisma.client.count({ where }),
+      prisma.party.count({ where }),
     ])
 
     return NextResponse.json({
@@ -90,38 +92,46 @@ export async function POST(request: Request) {
       )
     }
 
-    const { name, code } = validationResult.data
+    const { name, pointOfContact, phoneNumber } = validationResult.data
 
-    // Check for duplicates
-    const existing = await prisma.client.findFirst({
-      where: {
-        OR: [
-          { name: { equals: name, mode: 'insensitive' } },
-          ...(code ? [{ code: { equals: code, mode: 'insensitive' as const } }] : []),
-        ],
-      },
+    // Check for duplicates within organization
+    const existing = await prisma.party.findFirst({
+      where: orgScopedWhere(session, {
+        partyRole: PartyRole.CUSTOMER,
+        name: { equals: name, mode: 'insensitive' },
+      }),
     })
 
     if (existing) {
       return NextResponse.json(
         {
           success: false,
-          error: { code: 'DUPLICATE', message: 'A client with this name or code already exists' },
+          error: { code: 'DUPLICATE', message: 'A client with this name already exists' },
         },
         { status: 409 }
       )
     }
 
-    const client = await prisma.client.create({
-      data: { name, code },
+    // Generate unique identifier
+    const uniqueIdentifier = generateUniqueIdentifier(PartyRole.CUSTOMER)
+
+    const client = await prisma.party.create({
+      data: orgScopedData(session, {
+        name,
+        uniqueIdentifier,
+        pointOfContact,
+        phoneNumber,
+        partyRole: PartyRole.CUSTOMER,
+        isActive: true,
+      }),
     })
 
     await createAuditLog({
       userId: session.user.id,
       action: AuditAction.CLIENT_CREATED,
-      entityType: 'Client',
+      entityType: 'Party',
       entityId: client.id,
-      metadata: { name, code },
+      metadata: { name, partyRole: 'CUSTOMER' },
     })
 
     return NextResponse.json({ success: true, data: client }, { status: 201 })

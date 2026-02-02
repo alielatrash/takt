@@ -25,7 +25,18 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '20', 10)
     const action = searchParams.get('action')
 
-    const where = action ? { action } : {}
+    // Get users from current organization to filter audit logs
+    const orgMembers = await prisma.organizationMember.findMany({
+      where: { organizationId: session.user.currentOrgId },
+      select: { userId: true },
+    })
+    const userIds = orgMembers.map(m => m.userId)
+
+    // Scope audit logs to current organization users
+    const where = {
+      userId: { in: userIds },
+      ...(action && { action }),
+    }
 
     const [entries, total] = await Promise.all([
       prisma.auditLog.findMany({

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
+import { orgScopedWhere } from '@/lib/org-scoped'
 
 // Forecast Accuracy Report
 // Compares forecasted demand vs actual client requests (from Redash ActualShipperRequest data)
@@ -19,17 +20,18 @@ export async function GET(request: Request) {
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
 
-    // Get forecasts
+    // Get forecasts (with org scoping)
     const forecastWhere = planningWeekId ? { planningWeekId } : {}
     const forecasts = await prisma.demandForecast.groupBy({
-      by: ['citym'],
-      where: forecastWhere,
+      by: ['routeKey'],
+      where: orgScopedWhere(session, forecastWhere),
       _sum: {
-        totalLoads: true,
+        totalQty: true,
       },
     })
 
     // Get actual requests
+    // Note: ActualShipperRequest doesn't have organizationId
     const actualWhere: Record<string, unknown> = {}
     if (startDate) actualWhere.requestDate = { gte: new Date(startDate) }
     if (endDate) actualWhere.requestDate = { ...actualWhere.requestDate as object, lte: new Date(endDate) }
@@ -43,26 +45,26 @@ export async function GET(request: Request) {
       },
     })
 
-    // Build comparison data
-    const forecastMap = new Map(forecasts.map(f => [f.citym, f._sum.totalLoads ?? 0]))
+    // Build comparison data (routeKey from forecasts, citym from actuals - they should match)
+    const forecastMap = new Map(forecasts.map(f => [f.routeKey, f._sum.totalQty ?? 0]))
     const actualMap = new Map(actuals.map(a => [a.citym, {
       requested: a._sum.loadsRequested ?? 0,
       fulfilled: a._sum.loadsFulfilled ?? 0,
     }]))
 
-    const allCityms = new Set([...forecastMap.keys(), ...actualMap.keys()])
+    const allRouteKeys = new Set([...forecastMap.keys(), ...actualMap.keys()])
 
-    const report = Array.from(allCityms).map(citym => {
-      const forecasted = forecastMap.get(citym) ?? 0
-      const actual = actualMap.get(citym) ?? { requested: 0, fulfilled: 0 }
-      
+    const report = Array.from(allRouteKeys).map(routeKey => {
+      const forecasted = forecastMap.get(routeKey) ?? 0
+      const actual = actualMap.get(routeKey) ?? { requested: 0, fulfilled: 0 }
+
       const variance = actual.requested - forecasted
       const accuracyPercent = forecasted > 0
         ? Math.round((1 - Math.abs(variance) / forecasted) * 100)
         : actual.requested === 0 ? 100 : 0
 
       return {
-        citym,
+        routeKey,
         forecasted,
         actualRequested: actual.requested,
         actualFulfilled: actual.fulfilled,

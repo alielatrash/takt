@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 
 interface AccuracyRow {
-  citym: string
+  routeKey: string
   forecasted: number
   actual: number
   fulfilled: number
@@ -89,7 +89,7 @@ export function AccuracyTable({ data, isLoading }: AccuracyTableProps) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Route (CITYm)</TableHead>
+            <TableHead>Route</TableHead>
             <TableHead className="text-right">Forecasted</TableHead>
             <TableHead className="text-right">Actual</TableHead>
             <TableHead className="text-right">Fulfilled</TableHead>
@@ -100,8 +100,8 @@ export function AccuracyTable({ data, isLoading }: AccuracyTableProps) {
         </TableHeader>
         <TableBody>
           {data.map((row) => (
-            <TableRow key={row.citym}>
-              <TableCell className="font-medium">{row.citym}</TableCell>
+            <TableRow key={row.routeKey}>
+              <TableCell className="font-medium">{row.routeKey}</TableCell>
               <TableCell className="text-right">{row.forecasted}</TableCell>
               <TableCell className="text-right">{row.actual}</TableCell>
               <TableCell className="text-right">{row.fulfilled}</TableCell>
