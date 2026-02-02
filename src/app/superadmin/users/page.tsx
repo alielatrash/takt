@@ -84,24 +84,36 @@ export default function UsersPage() {
 
     setDeleteLoading(true)
     try {
-      const deletePromises = Array.from(selectedUsers).map((userId) =>
-        fetch(`/api/superadmin/users/${userId}`, {
+      const deletePromises = Array.from(selectedUsers).map(async (userId) => {
+        const response = await fetch(`/api/superadmin/users/${userId}`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ reason: deleteReason }),
         })
-      )
+        const data = await response.json()
+        return { success: data.success, userId, response: data }
+      })
 
       const results = await Promise.allSettled(deletePromises)
 
-      const successCount = results.filter((r) => r.status === 'fulfilled').length
-      const failCount = results.filter((r) => r.status === 'rejected').length
+      const successCount = results.filter(
+        (r) => r.status === 'fulfilled' && r.value.success
+      ).length
+      const failCount = results.filter(
+        (r) => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)
+      ).length
 
       if (successCount > 0) {
         toast.success(`Successfully deleted ${successCount} user(s)`)
       }
       if (failCount > 0) {
         toast.error(`Failed to delete ${failCount} user(s)`)
+        // Log failed deletions for debugging
+        results.forEach((r) => {
+          if (r.status === 'fulfilled' && !r.value.success) {
+            console.error('Failed to delete user:', r.value.userId, r.value.response)
+          }
+        })
       }
 
       // Reset state
@@ -112,6 +124,7 @@ export default function UsersPage() {
       // Refresh the list
       fetchUsers()
     } catch (error) {
+      console.error('Bulk delete error:', error)
       toast.error('Failed to delete users')
     } finally {
       setDeleteLoading(false)
