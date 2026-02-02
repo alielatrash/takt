@@ -5,7 +5,7 @@ import { createSession, setSessionCookie } from '@/lib/auth'
 import { createAuditLog, AuditAction } from '@/lib/audit'
 import { loginSchema } from '@/lib/validations/auth'
 import { headers } from 'next/headers'
-import { isPlatformAdmin } from '@/lib/platform-admin'
+import { getPlatformAdmin } from '@/lib/platform-admin'
 
 export async function POST(request: Request) {
   try {
@@ -145,13 +145,14 @@ export async function POST(request: Request) {
     })
 
     // Check if user is platform admin
-    const isAdmin = await isPlatformAdmin(user.email)
+    const platformAdmin = await getPlatformAdmin(user.id)
+    const isPlatformAdmin = !!platformAdmin
 
     return NextResponse.json({
       success: true,
       data: {
         message: 'Login successful',
-        isPlatformAdmin: isAdmin,
+        isPlatformAdmin,
         user: {
           id: user.id,
           email: user.email,
