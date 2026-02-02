@@ -2,22 +2,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Building2, Users, TrendingUp, Activity } from 'lucide-react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
-
-async function getStats() {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-  const response = await fetch(`${baseUrl}/api/superadmin/stats?days=30`, {
-    cache: 'no-store',
-  })
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch stats')
-  }
-
-  return response.json()
-}
+import { getSuperadminStats } from '@/lib/superadmin-stats'
 
 export default async function SuperadminDashboard() {
-  const { data } = await getStats()
+  const data = await getSuperadminStats(30)
 
   const statCards = [
     {
