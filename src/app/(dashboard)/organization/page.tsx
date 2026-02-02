@@ -49,7 +49,6 @@ import {
 import { useAuth } from '@/hooks/use-auth'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
-import { SubscriptionOverviewCard } from '@/components/billing/subscription-overview-card'
 
 export default function OrganizationSettingsPage() {
   const { data: authData } = useAuth()
@@ -312,9 +311,6 @@ export default function OrganizationSettingsPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* Subscription & Billing */}
-      {isOwner && <SubscriptionOverviewCard />}
 
       {/* Label Customization */}
       <Card>
