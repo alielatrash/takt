@@ -171,21 +171,20 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       )
     }
 
-    // Soft delete by setting isActive to false
-    const client = await prisma.party.update({
+    // Hard delete - actually remove the record
+    await prisma.party.delete({
       where: { id },
-      data: { isActive: false },
     })
 
     await createAuditLog({
       userId: session.user.id,
       action: AuditAction.CLIENT_DELETED,
       entityType: 'Party',
-      entityId: client.id,
+      entityId: id,
       metadata: { name: existing.name, partyRole: 'CUSTOMER' },
     })
 
-    return NextResponse.json({ success: true, data: { message: 'Client deactivated' } })
+    return NextResponse.json({ success: true, data: { message: 'Client deleted successfully' } })
   } catch (error) {
     console.error('Delete client error:', error)
     return NextResponse.json(
