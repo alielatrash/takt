@@ -103,7 +103,7 @@ async function handleCheckoutSessionCompleted(
   }
 
   // Fetch full subscription details from Stripe
-  const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId)
+  const stripeSubscription = await stripe.client.subscriptions.retrieve(subscriptionId)
   const priceId = stripeSubscription.items.data[0]?.price.id
 
   // Update organization
