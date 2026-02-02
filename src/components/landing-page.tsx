@@ -541,7 +541,8 @@ export default function LandingPage() {
               <Link href="#" className="transition-colors hover:text-white">Terms of Service</Link>
               <Link href="#" className="transition-colors hover:text-white">Cookie Policy</Link>
             </div>
-            © {new Date().getFullYear()} Takt Planning. All rights reserved.
+            <div>© {new Date().getFullYear()} Takt Planning. All rights reserved.</div>
+            <div className="mt-2">Takt is a Bosla company.</div>
           </div>
         </div>
       </footer>
