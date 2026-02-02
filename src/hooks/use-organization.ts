@@ -32,6 +32,9 @@ export interface OrganizationDetails {
   subscriptionTier?: 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE'
   subscriptionStatus?: 'FREE_TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELLED'
   trialEndsAt?: string | null
+  currentBillingCycle?: 'MONTHLY' | 'ANNUAL' | null
+  subscriptionCurrentPeriodEnd?: string | null
+  subscriptionCancelAtPeriodEnd?: boolean
   isActive: boolean
   createdAt: string
   updatedAt: string
