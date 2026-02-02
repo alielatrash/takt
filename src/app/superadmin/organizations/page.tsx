@@ -31,8 +31,8 @@ export default function OrganizationsPage() {
       })
 
       if (search) params.append('search', search)
-      if (status) params.append('status', status)
-      if (tier) params.append('tier', tier)
+      if (status && status !== 'all') params.append('status', status)
+      if (tier && tier !== 'all') params.append('tier', tier)
 
       const response = await fetch(`/api/superadmin/organizations?${params}`)
       const data = await response.json()
@@ -75,29 +75,29 @@ export default function OrganizationsPage() {
               />
             </div>
 
-            <Select value={status} onValueChange={(value) => {
-              setStatus(value)
+            <Select value={status || 'all'} onValueChange={(value) => {
+              setStatus(value === 'all' ? '' : value)
               setPage(1)
             }}>
               <SelectTrigger>
                 <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All statuses</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="ACTIVE">Active</SelectItem>
                 <SelectItem value="SUSPENDED">Suspended</SelectItem>
               </SelectContent>
             </Select>
 
-            <Select value={tier} onValueChange={(value) => {
-              setTier(value)
+            <Select value={tier || 'all'} onValueChange={(value) => {
+              setTier(value === 'all' ? '' : value)
               setPage(1)
             }}>
               <SelectTrigger>
                 <SelectValue placeholder="All tiers" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All tiers</SelectItem>
+                <SelectItem value="all">All tiers</SelectItem>
                 <SelectItem value="STARTER">Starter</SelectItem>
                 <SelectItem value="PROFESSIONAL">Professional</SelectItem>
                 <SelectItem value="ENTERPRISE">Enterprise</SelectItem>
