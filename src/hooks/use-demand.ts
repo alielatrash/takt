@@ -1,12 +1,13 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { DemandForecast, PlanningWeek, Party, Location, ResourceType } from '@prisma/client'
+import type { DemandForecast, PlanningWeek, Party, Location, ResourceType, DemandCategory } from '@prisma/client'
 
-interface DemandForecastWithRelations extends DemandForecast {
+interface DemandForecastWithRelations extends Omit<DemandForecast, 'party' | 'pickupLocation' | 'dropoffLocation' | 'demandCategory' | 'resourceType' | 'organization' | 'planningWeek'> {
   party: Pick<Party, 'id' | 'name'>
   pickupLocation: Pick<Location, 'id' | 'name' | 'code' | 'region'>
   dropoffLocation: Pick<Location, 'id' | 'name' | 'code' | 'region'>
+  demandCategory?: Pick<DemandCategory, 'id' | 'name' | 'code'> | null
   resourceType: Pick<ResourceType, 'id' | 'name'>
   planningWeek: Pick<PlanningWeek, 'id' | 'weekStart' | 'weekEnd'>
   createdBy: { id: string; firstName: string; lastName: string }
@@ -76,7 +77,7 @@ interface CreateDemandForecastInput {
   clientId: string
   pickupCityId: string
   dropoffCityId: string
-  vertical: 'DOMESTIC' | 'PORTS'
+  demandCategoryId?: string
   truckTypeId: string
   day1Loads?: number
   day2Loads?: number
@@ -85,6 +86,11 @@ interface CreateDemandForecastInput {
   day5Loads?: number
   day6Loads?: number
   day7Loads?: number
+  week1Loads?: number
+  week2Loads?: number
+  week3Loads?: number
+  week4Loads?: number
+  week5Loads?: number
 }
 
 export function useCreateDemandForecast() {
@@ -124,7 +130,7 @@ interface UpdateDemandForecastInput {
   week3Loads?: number
   week4Loads?: number
   week5Loads?: number
-  vertical?: 'DOMESTIC' | 'PORTS'
+  demandCategoryId?: string
   truckTypeId?: string
   [key: string]: string | number | undefined
 }

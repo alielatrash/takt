@@ -93,6 +93,8 @@ export interface OrganizationSettings {
   supplyLabelPlural: string
   demandCategoryEnabled: boolean
   demandCategoryLabel: string
+  demandCategoryLabelPlural: string
+  demandCategoryRequired: boolean
   createdAt: string
   updatedAt: string
 }

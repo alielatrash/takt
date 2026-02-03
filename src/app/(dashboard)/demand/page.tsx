@@ -13,7 +13,7 @@ import { useOrganizationSettings } from '@/hooks/use-organization'
 import { toast } from 'sonner'
 import type { DemandForecast, Party, Location, ResourceType, DemandCategory } from '@prisma/client'
 
-interface DemandForecastWithRelations extends DemandForecast {
+interface DemandForecastWithRelations extends Omit<DemandForecast, 'party' | 'pickupLocation' | 'dropoffLocation' | 'demandCategory' | 'resourceType' | 'organization' | 'planningWeek'> {
   party: Pick<Party, 'id' | 'name'>
   pickupLocation: Pick<Location, 'id' | 'name' | 'code' | 'region'>
   dropoffLocation: Pick<Location, 'id' | 'name' | 'code' | 'region'>

@@ -5,9 +5,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 interface SupplyTarget {
   routeKey: string
   forecastCount: number
-  target: { day1: number; day2: number; day3: number; day4: number; day5: number; day6: number; day7: number; total: number }
-  committed: { day1: number; day2: number; day3: number; day4: number; day5: number; day6: number; day7: number; total: number }
-  gap: { day1: number; day2: number; day3: number; day4: number; day5: number; day6: number; day7: number; total: number }
+  target: { day1: number; day2: number; day3: number; day4: number; day5: number; day6: number; day7: number; week1: number; week2: number; week3: number; week4: number; total: number }
+  committed: { day1: number; day2: number; day3: number; day4: number; day5: number; day6: number; day7: number; week1: number; week2: number; week3: number; week4: number; total: number }
+  gap: { day1: number; day2: number; day3: number; day4: number; day5: number; day6: number; day7: number; week1: number; week2: number; week3: number; week4: number; total: number }
   gapPercent: number
   clients: Array<{
     client: { id: string; name: string; code: string | null }

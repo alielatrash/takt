@@ -231,7 +231,7 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
           clientId: data.clientId,
           pickupCityId: data.pickupCityId,
           dropoffCityId: data.dropoffCityId,
-          vertical: data.vertical,
+          demandCategoryId: data.demandCategoryId,
           truckTypeId: data.truckTypeId,
           day1Loads: data.day1Loads,
           day2Loads: data.day2Loads,
