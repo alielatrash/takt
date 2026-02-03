@@ -120,6 +120,27 @@ export function SupplyFormDialog({ open, onOpenChange, planningWeekId, routeKey,
   // Watch form values for real-time feedback
   const formValues = form.watch()
 
+  // Calculate dynamic remaining gap
+  const dynamicRemainingGap = useMemo(() => {
+    if (!targetData) return 0
+
+    if (isMonthlyPlanning) {
+      const total = [1, 2, 3, 4].reduce((sum, i) => {
+        const gap = targetData.gap[`week${i}` as keyof typeof targetData.gap] || 0
+        const commit = formValues[`week${i}Committed` as keyof typeof formValues] as number || 0
+        return sum + (gap - commit)
+      }, 0)
+      return total
+    } else {
+      const total = [1, 2, 3, 4, 5, 6, 7].reduce((sum, i) => {
+        const gap = targetData.gap[`day${i}` as keyof typeof targetData.gap] || 0
+        const commit = formValues[`day${i}Committed` as keyof typeof formValues] as number || 0
+        return sum + (gap - commit)
+      }, 0)
+      return total
+    }
+  }, [targetData, formValues, isMonthlyPlanning])
+
   const onSubmit = async (data: CreateSupplyCommitmentInput) => {
     try {
       await createMutation.mutateAsync(data)
@@ -189,8 +210,14 @@ export function SupplyFormDialog({ open, onOpenChange, planningWeekId, routeKey,
                   </div>
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-muted-foreground text-xs">Gap</span>
-                    <span className={`font-bold ${targetData.gap.total > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                      {targetData.gap.total}
+                    <span className={`font-bold ${
+                      dynamicRemainingGap > 0
+                        ? 'text-red-600'
+                        : dynamicRemainingGap < 0
+                        ? 'text-amber-600'
+                        : 'text-emerald-600'
+                    }`}>
+                      {dynamicRemainingGap}
                     </span>
                   </div>
                 </div>
@@ -205,7 +232,7 @@ export function SupplyFormDialog({ open, onOpenChange, planningWeekId, routeKey,
                       {MONTH_WEEKS.map((week, index) => {
                         const gap = targetData.gap[`week${index + 1}` as keyof typeof targetData.gap] || 0
                         const newCommit = formValues[`week${index + 1}Committed` as keyof typeof formValues] as number || 0
-                        const remaining = Math.max(0, gap - newCommit)
+                        const remaining = gap - newCommit
 
                         return (
                           <FormField
@@ -214,16 +241,20 @@ export function SupplyFormDialog({ open, onOpenChange, planningWeekId, routeKey,
                             name={`week${index + 1}Committed` as any}
                             render={({ field }) => (
                               <FormItem className="space-y-1.5">
-                                <div className="flex items-baseline justify-between">
+                                <div className="flex items-baseline justify-between min-h-[18px]">
                                   <FormLabel className="text-xs text-muted-foreground">
                                     {week.label}
                                   </FormLabel>
-                                  {remaining > 0 && (
-                                    <span className="text-[10px] font-semibold text-red-600">
-                                      {remaining} left
+                                  {remaining !== 0 && newCommit > 0 && (
+                                    <span className={`text-[10px] font-semibold ${
+                                      remaining > 0
+                                        ? 'text-red-600'
+                                        : 'text-amber-600'
+                                    }`}>
+                                      {remaining > 0 ? `${remaining} left` : `${Math.abs(remaining)} over`}
                                     </span>
                                   )}
-                                  {gap > 0 && remaining === 0 && newCommit > 0 && (
+                                  {remaining === 0 && newCommit > 0 && (
                                     <span className="text-[10px] font-semibold text-emerald-600">
                                       ✓
                                     </span>
@@ -235,10 +266,12 @@ export function SupplyFormDialog({ open, onOpenChange, planningWeekId, routeKey,
                                     min="0"
                                     placeholder="0"
                                     className={`text-center h-11 text-base transition-colors ${
-                                      gap > 0
-                                        ? remaining > 0
-                                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                                          : 'border-emerald-300 focus:border-emerald-500 focus:ring-emerald-500'
+                                      remaining > 0
+                                        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                                        : remaining < 0
+                                        ? 'border-amber-300 focus:border-amber-500 focus:ring-amber-500'
+                                        : newCommit > 0
+                                        ? 'border-emerald-300 focus:border-emerald-500 focus:ring-emerald-500'
                                         : ''
                                     }`}
                                     {...field}
@@ -261,7 +294,7 @@ export function SupplyFormDialog({ open, onOpenChange, planningWeekId, routeKey,
                       {WEEK_DAYS.map((day, index) => {
                         const gap = targetData.gap[`day${index + 1}` as keyof typeof targetData.gap] || 0
                         const newCommit = formValues[`day${index + 1}Committed` as keyof typeof formValues] as number || 0
-                        const remaining = Math.max(0, gap - newCommit)
+                        const remaining = gap - newCommit
 
                         return (
                           <FormField
@@ -270,15 +303,22 @@ export function SupplyFormDialog({ open, onOpenChange, planningWeekId, routeKey,
                             name={`day${index + 1}Committed` as keyof CreateSupplyCommitmentInput}
                             render={({ field }) => (
                               <FormItem className="space-y-1">
-                                <div className="flex flex-col items-center gap-0.5 min-h-[28px]">
+                                <div className="flex flex-col items-center justify-end gap-0.5 min-h-[32px]">
                                   <FormLabel className="text-[11px] text-muted-foreground">
                                     {day.label}
                                   </FormLabel>
-                                  {gap > 0 && (
+                                  {remaining !== 0 && newCommit > 0 && (
                                     <span className={`text-[10px] font-bold leading-none ${
-                                      remaining > 0 ? 'text-red-600' : 'text-emerald-600'
+                                      remaining > 0
+                                        ? 'text-red-600'
+                                        : 'text-amber-600'
                                     }`}>
-                                      {remaining > 0 ? remaining : '✓'}
+                                      {remaining > 0 ? remaining : Math.abs(remaining)}
+                                    </span>
+                                  )}
+                                  {remaining === 0 && newCommit > 0 && (
+                                    <span className="text-[10px] font-bold leading-none text-emerald-600">
+                                      ✓
                                     </span>
                                   )}
                                 </div>
@@ -288,10 +328,12 @@ export function SupplyFormDialog({ open, onOpenChange, planningWeekId, routeKey,
                                     min="0"
                                     placeholder="0"
                                     className={`text-center h-10 transition-colors ${
-                                      gap > 0
-                                        ? remaining > 0
-                                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                                          : 'border-emerald-300 focus:border-emerald-500 focus:ring-emerald-500'
+                                      remaining > 0
+                                        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                                        : remaining < 0
+                                        ? 'border-amber-300 focus:border-amber-500 focus:ring-amber-500'
+                                        : newCommit > 0
+                                        ? 'border-emerald-300 focus:border-emerald-500 focus:ring-emerald-500'
                                         : ''
                                     }`}
                                     {...field}
