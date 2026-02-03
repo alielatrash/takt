@@ -337,7 +337,7 @@ export function SupplyTable({ data, isLoading, onAddCommitment, planningWeekId, 
                 </TableRow>
 
                 {/* Gap Row */}
-                <TableRow className="border-b-2 border-slate-300 hover:bg-slate-50/30">
+                <TableRow className="border-b-4 border-slate-800 hover:bg-slate-50/30">
                   <TableCell></TableCell>
                   <TableCell></TableCell>
                   <TableCell>
