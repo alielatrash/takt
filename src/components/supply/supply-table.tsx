@@ -136,7 +136,7 @@ export function SupplyTable({ data, isLoading, onAddCommitment, planningWeekId, 
     try {
       await updateMutation.mutateAsync({
         id,
-        [`${day}Committed`]: newValue,
+        [day]: newValue,
       })
       toast.success('Commitment updated')
     } catch (error) {
