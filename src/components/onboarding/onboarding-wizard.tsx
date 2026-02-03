@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -38,6 +39,8 @@ interface OnboardingData {
   resourceTypeLabel: string
   demandLabel: string
   supplyLabel: string
+  demandCategoryLabel: string
+  demandCategoryEnabled: boolean
 
   // Step 3: Planning Configuration
   planningCycle: 'daily' | 'weekly' | 'monthly'
@@ -59,6 +62,8 @@ const INDUSTRY_PRESETS = {
       resourceTypeLabel: 'Truck Type',
       demandLabel: 'Demand',
       supplyLabel: 'Supply',
+      demandCategoryLabel: 'Category',
+      demandCategoryEnabled: false,
     },
   },
   manufacturing: {
@@ -69,6 +74,8 @@ const INDUSTRY_PRESETS = {
       resourceTypeLabel: 'Product',
       demandLabel: 'Order',
       supplyLabel: 'Production',
+      demandCategoryLabel: 'Product Line',
+      demandCategoryEnabled: false,
     },
   },
   retail: {
@@ -79,6 +86,8 @@ const INDUSTRY_PRESETS = {
       resourceTypeLabel: 'Product',
       demandLabel: 'Demand',
       supplyLabel: 'Inventory',
+      demandCategoryLabel: 'Department',
+      demandCategoryEnabled: false,
     },
   },
   warehouse: {
@@ -89,6 +98,8 @@ const INDUSTRY_PRESETS = {
       resourceTypeLabel: 'Material',
       demandLabel: 'Requirement',
       supplyLabel: 'Capacity',
+      demandCategoryLabel: 'Business Unit',
+      demandCategoryEnabled: false,
     },
   },
   custom: {
@@ -99,6 +110,8 @@ const INDUSTRY_PRESETS = {
       resourceTypeLabel: 'Resource Type',
       demandLabel: 'Demand',
       supplyLabel: 'Supply',
+      demandCategoryLabel: 'Category',
+      demandCategoryEnabled: false,
     },
   },
 }
@@ -155,6 +168,10 @@ export function OnboardingWizard({ initialData }: OnboardingWizardProps) {
         demandLabelPlural: pluralize(data.demandLabel),
         supplyLabel: data.supplyLabel,
         supplyLabelPlural: pluralize(data.supplyLabel),
+        demandCategoryLabel: data.demandCategoryLabel,
+        demandCategoryLabelPlural: pluralize(data.demandCategoryLabel),
+        demandCategoryEnabled: data.demandCategoryEnabled,
+        demandCategoryRequired: false, // Default to not required
         planningCycle: data.planningCycle,
         weekStartDay: data.weekStartDay,
       }
@@ -354,6 +371,41 @@ export function OnboardingWizard({ initialData }: OnboardingWizardProps) {
                   <p className="text-xs text-muted-foreground mt-1">
                     Will be pluralized automatically → {pluralize(data.supplyLabel || 'Supply')}
                   </p>
+                </div>
+
+                {/* Category Field Configuration */}
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="categoryEnabled" className="text-base font-medium">
+                        Enable Category Field (Optional)
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Add an optional categorization field for demand forecasts
+                      </p>
+                    </div>
+                    <Switch
+                      id="categoryEnabled"
+                      checked={data.demandCategoryEnabled}
+                      onCheckedChange={(checked) => setData({ ...data, demandCategoryEnabled: checked })}
+                    />
+                  </div>
+
+                  {data.demandCategoryEnabled && (
+                    <div>
+                      <Label htmlFor="demandCategoryLabel">Category Label</Label>
+                      <Input
+                        id="demandCategoryLabel"
+                        value={data.demandCategoryLabel}
+                        onChange={(e) => setData({ ...data, demandCategoryLabel: e.target.value })}
+                        placeholder="Category, Vertical, Type, Product Line"
+                        className="mt-1"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Will be pluralized automatically → {pluralize(data.demandCategoryLabel || 'Category')}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

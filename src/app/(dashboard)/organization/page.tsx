@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   Table,
   TableBody,
@@ -107,6 +108,10 @@ export default function OrganizationSettingsPage() {
     demandLabelPlural: '',
     supplyLabel: '',
     supplyLabelPlural: '',
+    demandCategoryLabel: '',
+    demandCategoryLabelPlural: '',
+    demandCategoryEnabled: false,
+    demandCategoryRequired: false,
   })
 
   const isOwner = authData?.user?.currentOrgRole === 'OWNER'
@@ -159,7 +164,14 @@ export default function OrganizationSettingsPage() {
   }
 
   const handleUpdateLabels = () => {
-    updateSettings.mutate(labels, {
+    // Filter out empty strings to avoid validation errors (Zod .optional() expects undefined, not empty strings)
+    const payload = {
+      ...labels,
+      ...(labels.demandCategoryLabel.trim() ? { demandCategoryLabel: labels.demandCategoryLabel.trim() } : {}),
+      ...(labels.demandCategoryLabelPlural.trim() ? { demandCategoryLabelPlural: labels.demandCategoryLabelPlural.trim() } : {}),
+    }
+
+    updateSettings.mutate(payload, {
       onSuccess: () => {
         setEditLabelsDialogOpen(false)
       },
@@ -179,6 +191,10 @@ export default function OrganizationSettingsPage() {
         demandLabelPlural: settings.demandLabelPlural,
         supplyLabel: settings.supplyLabel,
         supplyLabelPlural: settings.supplyLabelPlural,
+        demandCategoryLabel: settings.demandCategoryLabel || '',
+        demandCategoryLabelPlural: settings.demandCategoryLabelPlural || '',
+        demandCategoryEnabled: settings.demandCategoryEnabled || false,
+        demandCategoryRequired: settings.demandCategoryRequired || false,
       })
     }
     setEditLabelsDialogOpen(true)
@@ -383,6 +399,21 @@ export default function OrganizationSettingsPage() {
                   <p className="text-lg font-medium">{settings?.supplyLabel} / {settings?.supplyLabelPlural}</p>
                   <p className="text-xs text-muted-foreground mt-1">Default: Supply / Supply Commitments</p>
                 </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">Category Field</Label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant={settings?.demandCategoryEnabled ? 'default' : 'secondary'}>
+                      {settings?.demandCategoryEnabled ? 'Enabled' : 'Disabled'}
+                    </Badge>
+                    {settings?.demandCategoryEnabled && settings?.demandCategoryRequired && (
+                      <Badge variant="outline">Required</Badge>
+                    )}
+                  </div>
+                  {settings?.demandCategoryEnabled && (
+                    <p className="text-lg font-medium mt-1">{settings?.demandCategoryLabel} / {settings?.demandCategoryLabelPlural}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1">Default: Category / Categories</p>
+                </div>
               </div>
 
               {isOwner && (
@@ -523,6 +554,75 @@ export default function OrganizationSettingsPage() {
                             />
                           </div>
                         </div>
+                      </div>
+
+                      {/* Category Field Configuration */}
+                      <div className="space-y-3 border-t pt-4">
+                        <h4 className="font-semibold text-sm">Category Field (Optional)</h4>
+
+                        {/* Enable/Disable Switch */}
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="category-enabled">Enable Category Field</Label>
+                            <p className="text-xs text-muted-foreground">
+                              Show the category field in demand forecast forms and tables
+                            </p>
+                          </div>
+                          <Switch
+                            id="category-enabled"
+                            checked={labels.demandCategoryEnabled}
+                            onCheckedChange={(checked) =>
+                              setLabels({ ...labels, demandCategoryEnabled: checked })
+                            }
+                          />
+                        </div>
+
+                        {/* Required Switch (only shown if enabled) */}
+                        {labels.demandCategoryEnabled && (
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label htmlFor="category-required">Make Category Required</Label>
+                              <p className="text-xs text-muted-foreground">
+                                Require users to select a category when creating demand forecasts
+                              </p>
+                            </div>
+                            <Switch
+                              id="category-required"
+                              checked={labels.demandCategoryRequired}
+                              onCheckedChange={(checked) =>
+                                setLabels({ ...labels, demandCategoryRequired: checked })
+                              }
+                            />
+                          </div>
+                        )}
+
+                        {/* Label Inputs (only shown if enabled) */}
+                        {labels.demandCategoryEnabled && (
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="demandCategoryLabel">Singular</Label>
+                              <Input
+                                id="demandCategoryLabel"
+                                value={labels.demandCategoryLabel}
+                                onChange={(e) =>
+                                  setLabels({ ...labels, demandCategoryLabel: e.target.value })
+                                }
+                                placeholder="Category, Vertical, Type, Product Line"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="demandCategoryLabelPlural">Plural</Label>
+                              <Input
+                                id="demandCategoryLabelPlural"
+                                value={labels.demandCategoryLabelPlural}
+                                onChange={(e) =>
+                                  setLabels({ ...labels, demandCategoryLabelPlural: e.target.value })
+                                }
+                                placeholder="Categories, Verticals, Types, Product Lines"
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <DialogFooter>

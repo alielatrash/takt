@@ -9,13 +9,15 @@ import { WeekSelector } from '@/components/demand/week-selector'
 import { DemandTable } from '@/components/demand/demand-table'
 import { DemandFormDialog } from '@/components/demand/demand-form-dialog'
 import { usePlanningWeeks, useDemandForecasts, useDeleteDemandForecast } from '@/hooks/use-demand'
+import { useOrganizationSettings } from '@/hooks/use-organization'
 import { toast } from 'sonner'
-import type { DemandForecast, Party, Location, ResourceType } from '@prisma/client'
+import type { DemandForecast, Party, Location, ResourceType, DemandCategory } from '@prisma/client'
 
 interface DemandForecastWithRelations extends DemandForecast {
   party: Pick<Party, 'id' | 'name'>
   pickupLocation: Pick<Location, 'id' | 'name' | 'code' | 'region'>
   dropoffLocation: Pick<Location, 'id' | 'name' | 'code' | 'region'>
+  demandCategory?: Pick<DemandCategory, 'id' | 'name' | 'code'> | null
   resourceType: Pick<ResourceType, 'id' | 'name'>
   createdBy: { id: string; firstName: string; lastName: string }
 }
@@ -30,6 +32,7 @@ export default function DemandPlanningPage() {
 
   const { data: weeksData } = usePlanningWeeks()
   const { data: forecastsData, isLoading } = useDemandForecasts(selectedWeekId, page, pageSize)
+  const { data: orgSettings } = useOrganizationSettings()
   const deleteMutation = useDeleteDemandForecast()
 
   // Reset page when week changes
@@ -56,13 +59,16 @@ export default function DemandPlanningPage() {
   const handleDownload = () => {
     if (!forecastsData?.data?.length) return
 
+    const isCategoryEnabled = orgSettings?.demandCategoryEnabled || false
+    const categoryLabel = orgSettings?.demandCategoryLabel || 'Category'
+
     const headers = [
       'Client',
       'Route',
       'Pickup City',
       'Dropoff City',
       'Region',
-      'Vertical',
+      ...(isCategoryEnabled ? [categoryLabel] : []),
       'Truck Type',
       'Sunday',
       'Monday',
@@ -80,7 +86,7 @@ export default function DemandPlanningPage() {
       f.pickupLocation.name,
       f.dropoffLocation.name,
       `${f.pickupLocation.region} → ${f.dropoffLocation.region}`,
-      f.vertical,
+      ...(isCategoryEnabled ? [f.demandCategory?.name || ''] : []),
       f.resourceType.name,
       f.day1Qty,
       f.day2Qty,

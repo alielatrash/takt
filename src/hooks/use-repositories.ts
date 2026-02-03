@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { Party, Location, ResourceType } from '@prisma/client'
+import type { Party, Location, ResourceType, DemandCategory } from '@prisma/client'
 
 interface PaginatedResponse<T> {
   success: boolean
@@ -299,6 +299,72 @@ export function useDeleteTruckType() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['truckTypes'] })
+    },
+  })
+}
+
+// Demand Categories
+export function useDemandCategories(params: SearchParams = {}, enabled: boolean = true) {
+  return useQuery({
+    queryKey: ['demandCategories', params],
+    queryFn: () => fetchData<DemandCategory>('/api/demand-categories', params),
+    enabled,
+    staleTime: 60 * 60 * 1000, // 1 hour - master data rarely changes
+    gcTime: 2 * 60 * 60 * 1000, // 2 hours in cache
+  })
+}
+
+export function useCreateDemandCategory() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (data: { name: string; code?: string }) => {
+      const response = await fetch('/api/demand-categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+        credentials: 'include',
+      })
+      const result = await response.json()
+      if (!result.success) throw new Error(result.error.message)
+      return result.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['demandCategories'] })
+    },
+  })
+}
+
+export function useUpdateDemandCategory() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...data }: { id: string; name?: string; code?: string }) => {
+      const response = await fetch(`/api/demand-categories/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+        credentials: 'include',
+      })
+      const result = await response.json()
+      if (!result.success) throw new Error(result.error.message)
+      return result.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['demandCategories'] })
+    },
+  })
+}
+
+export function useDeleteDemandCategory() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/demand-categories/${id}`, { method: 'DELETE', credentials: 'include' })
+      const result = await response.json()
+      if (!result.success) throw new Error(result.error.message)
+      return result.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['demandCategories'] })
     },
   })
 }

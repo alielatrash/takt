@@ -25,9 +25,10 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useUpdateDemandForecast, useDeleteDemandForecast, usePlanningWeeks } from '@/hooks/use-demand'
+import { useOrganizationSettings } from '@/hooks/use-organization'
 import { WEEK_DAYS } from '@/types'
 import { formatCitym } from '@/lib/citym'
-import type { DemandForecast, Party, Location, ResourceType } from '@prisma/client'
+import type { DemandForecast, Party, Location, ResourceType, DemandCategory } from '@prisma/client'
 
 const MONTH_WEEKS = [
   { key: 'week1', label: 'Week 1' },
@@ -40,6 +41,7 @@ interface DemandForecastWithRelations extends DemandForecast {
   party: Pick<Party, 'id' | 'name'>
   pickupLocation: Pick<Location, 'id' | 'name' | 'code' | 'region'>
   dropoffLocation: Pick<Location, 'id' | 'name' | 'code' | 'region'>
+  demandCategory?: Pick<DemandCategory, 'id' | 'name' | 'code'> | null
   resourceType: Pick<ResourceType, 'id' | 'name'>
   createdBy: { id: string; firstName: string; lastName: string }
 }
@@ -77,6 +79,7 @@ function formatDayDate(weekStart: Date | string, dayIndex: number): string {
 
 export function DemandTable({ data, isLoading, onEditForecast, weekStart, planningWeekId, pagination, onPageChange, selectedIds = new Set(), onSelectionChange }: DemandTableProps) {
   const { data: planningWeeksData } = usePlanningWeeks()
+  const { data: orgSettings } = useOrganizationSettings()
   const updateMutation = useUpdateDemandForecast()
   const deleteMutation = useDeleteDemandForecast()
   const [editingCell, setEditingCell] = useState<{ id: string; day: string } | null>(null)
@@ -84,6 +87,8 @@ export function DemandTable({ data, isLoading, onEditForecast, weekStart, planni
 
   const planningCycle = planningWeeksData?.meta?.planningCycle || 'WEEKLY'
   const isMonthlyPlanning = planningCycle === 'MONTHLY'
+  const isCategoryEnabled = orgSettings?.demandCategoryEnabled || false
+  const categoryLabel = orgSettings?.demandCategoryLabel || 'Category'
 
   // Calculate week date ranges for monthly planning
   const weekDateRanges = useMemo(() => {
@@ -173,7 +178,9 @@ export function DemandTable({ data, isLoading, onEditForecast, weekStart, planni
               <TableHead className="font-semibold">Client</TableHead>
               <TableHead className="font-semibold">Route</TableHead>
               <TableHead className="font-semibold">Region</TableHead>
-              <TableHead className="font-semibold">Vertical</TableHead>
+              {isCategoryEnabled && (
+                <TableHead className="font-semibold">{categoryLabel}</TableHead>
+              )}
               <TableHead className="font-semibold">Truck Type</TableHead>
               {isMonthlyPlanning ? (
                 MONTH_WEEKS.map((week) => (
@@ -233,7 +240,9 @@ export function DemandTable({ data, isLoading, onEditForecast, weekStart, planni
             <TableHead className="sticky left-0 bg-card font-semibold">Client</TableHead>
             <TableHead className="font-semibold">Route</TableHead>
             <TableHead className="font-semibold">Region</TableHead>
-            <TableHead className="font-semibold">Vertical</TableHead>
+            {isCategoryEnabled && (
+              <TableHead className="font-semibold">{categoryLabel}</TableHead>
+            )}
             <TableHead className="font-semibold">Truck Type</TableHead>
             {isMonthlyPlanning ? (
               MONTH_WEEKS.map((week, index) => (
@@ -285,14 +294,17 @@ export function DemandTable({ data, isLoading, onEditForecast, weekStart, planni
               <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                 {forecast.pickupLocation.region} → {forecast.dropoffLocation.region}
               </TableCell>
-              <TableCell>
-                <Badge
-                  variant={forecast.vertical === 'DOMESTIC' ? 'default' : 'secondary'}
-                  className="text-xs"
-                >
-                  {forecast.vertical}
-                </Badge>
-              </TableCell>
+              {isCategoryEnabled && (
+                <TableCell>
+                  {forecast.demandCategory ? (
+                    <Badge variant="default" className="text-xs">
+                      {forecast.demandCategory.name}
+                    </Badge>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">-</span>
+                  )}
+                </TableCell>
+              )}
               <TableCell className="text-sm">{forecast.resourceType.name}</TableCell>
               {isMonthlyPlanning ? (
                 MONTH_WEEKS.map((week, weekIndex) => {

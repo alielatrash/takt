@@ -52,6 +52,17 @@ export const updateTruckTypeSchema = createTruckTypeSchema.partial()
 export type CreateTruckTypeInput = z.infer<typeof createTruckTypeSchema>
 export type UpdateTruckTypeInput = z.infer<typeof updateTruckTypeSchema>
 
+// Demand Category validations
+export const createDemandCategorySchema = z.object({
+  name: z.string().min(1, 'Name is required').max(50, 'Name must be less than 50 characters'),
+  code: z.string().max(10, 'Code must be less than 10 characters').optional(),
+})
+
+export const updateDemandCategorySchema = createDemandCategorySchema.partial()
+
+export type CreateDemandCategoryInput = z.infer<typeof createDemandCategorySchema>
+export type UpdateDemandCategoryInput = z.infer<typeof updateDemandCategorySchema>
+
 // Search params
 export const searchParamsSchema = z.object({
   q: z.string().optional().nullable().transform(v => v || undefined),

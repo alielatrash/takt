@@ -215,6 +215,7 @@ export default function SupplyPlanningPage() {
           onOpenChange={setIsDialogOpen}
           planningWeekId={selectedWeekId}
           routeKey={selectedCitym}
+          targetData={targetsData?.data?.find(t => t.routeKey === selectedCitym)}
         />
       )}
     </div>

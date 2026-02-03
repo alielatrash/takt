@@ -31,8 +31,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Combobox } from '@/components/ui/combobox'
-import { useClients, useCities, useTruckTypes } from '@/hooks/use-repositories'
+import { useClients, useCities, useTruckTypes, useDemandCategories } from '@/hooks/use-repositories'
 import { useCreateDemandForecast, useUpdateDemandForecast, usePlanningWeeks } from '@/hooks/use-demand'
+import { useOrganizationSettings } from '@/hooks/use-organization'
 import { createDemandForecastSchema, type CreateDemandForecastInput } from '@/lib/validations/demand'
 import { WEEK_DAYS } from '@/types'
 import type { DemandForecast, Party, Location, ResourceType } from '@prisma/client'
@@ -40,6 +41,7 @@ import { format, addWeeks, startOfMonth } from 'date-fns'
 import { ClientQuickCreateDialog } from '@/components/repositories/client-quick-create-dialog'
 import { CityQuickCreateDialog } from '@/components/repositories/city-quick-create-dialog'
 import { TruckTypeQuickCreateDialog } from '@/components/repositories/truck-type-quick-create-dialog'
+import { DemandCategoryQuickCreateDialog } from '@/components/repositories/demand-category-quick-create-dialog'
 
 const MONTH_WEEKS = [
   { key: 'week1', label: 'Week 1' },
@@ -67,11 +69,26 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
   const [isPickupCityDialogOpen, setIsPickupCityDialogOpen] = useState(false)
   const [isDropoffCityDialogOpen, setIsDropoffCityDialogOpen] = useState(false)
   const [isTruckTypeDialogOpen, setIsTruckTypeDialogOpen] = useState(false)
+  const [isDemandCategoryDialogOpen, setIsDemandCategoryDialogOpen] = useState(false)
+
+  // Track search queries for auto-populating quick create dialogs
+  const [clientSearchQuery, setClientSearchQuery] = useState('')
+  const [pickupCitySearchQuery, setPickupCitySearchQuery] = useState('')
+  const [dropoffCitySearchQuery, setDropoffCitySearchQuery] = useState('')
+  const [truckTypeSearchQuery, setTruckTypeSearchQuery] = useState('')
+  const [demandCategorySearchQuery, setDemandCategorySearchQuery] = useState('')
+
+  // Fetch organization settings to check if category is enabled
+  const { data: orgSettings } = useOrganizationSettings()
+  const isCategoryEnabled = orgSettings?.demandCategoryEnabled || false
+  const isCategoryRequired = orgSettings?.demandCategoryRequired || false
+  const categoryLabel = orgSettings?.demandCategoryLabel || 'Category'
 
   // Only fetch data when dialog is open (prevents loading too many records on page load)
   const { data: clients } = useClients({ isActive: true, pageSize: 10000 }, open)
   const { data: cities } = useCities({ isActive: true, pageSize: 10000 }, open)
   const { data: truckTypes } = useTruckTypes({ isActive: true, pageSize: 1000 }, open)
+  const { data: demandCategories } = useDemandCategories({ isActive: true, pageSize: 1000 }, open && isCategoryEnabled)
   const { data: planningWeeksData } = usePlanningWeeks()
   const createMutation = useCreateDemandForecast()
   const updateMutation = useUpdateDemandForecast()
@@ -87,7 +104,7 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
       clientId: '',
       pickupCityId: '',
       dropoffCityId: '',
-      vertical: 'DOMESTIC',
+      demandCategoryId: '',
       truckTypeId: '',
       day1Loads: 0,
       day2Loads: 0,
@@ -130,6 +147,15 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
     [truckTypes]
   )
 
+  const categoryOptions = useMemo(() =>
+    demandCategories?.data?.map((category) => ({
+      value: category.id,
+      label: category.name,
+      description: category.code || undefined,
+    })) ?? [],
+    [demandCategories]
+  )
+
   // Calculate week date ranges for monthly planning
   const weekDateRanges = useMemo(() => {
     if (!isMonthlyPlanning || !planningWeeksData?.data) return []
@@ -159,7 +185,7 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
           clientId: forecast.partyId,
           pickupCityId: forecast.pickupLocationId,
           dropoffCityId: forecast.dropoffLocationId,
-          vertical: forecast.vertical as 'DOMESTIC' | 'PORTS',
+          demandCategoryId: forecast.demandCategoryId || '',
           truckTypeId: forecast.resourceTypeId,
           day1Loads: forecast.day1Qty,
           day2Loads: forecast.day2Qty,
@@ -179,7 +205,7 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
           clientId: '',
           pickupCityId: '',
           dropoffCityId: '',
-          vertical: 'DOMESTIC',
+          demandCategoryId: '',
           truckTypeId: '',
           day1Loads: 0,
           day2Loads: 0,
@@ -255,6 +281,7 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
                         placeholder="Search client..."
                         searchPlaceholder="Type to search..."
                         emptyText="No clients found."
+                        onSearchChange={setClientSearchQuery}
                         footerAction={
                           <Button
                             type="button"
@@ -274,27 +301,43 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="vertical"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Vertical *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+              {isCategoryEnabled && (
+                <FormField
+                  control={form.control}
+                  name="demandCategoryId"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>
+                        {categoryLabel} {isCategoryRequired && '*'}
+                      </FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select vertical" />
-                        </SelectTrigger>
+                        <Combobox
+                          options={categoryOptions}
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          placeholder={`Search ${categoryLabel.toLowerCase()}...`}
+                          searchPlaceholder="Type to search..."
+                          emptyText={`No ${categoryLabel.toLowerCase()}s found.`}
+                          onSearchChange={setDemandCategorySearchQuery}
+                          footerAction={
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start text-xs"
+                              onClick={() => setIsDemandCategoryDialogOpen(true)}
+                            >
+                              <Plus className="mr-2 h-3 w-3" />
+                              Add new {categoryLabel.toLowerCase()}
+                            </Button>
+                          }
+                        />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="DOMESTIC">Domestic</SelectItem>
-                        <SelectItem value="PORTS">Ports</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -312,6 +355,7 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
                         placeholder="Search city..."
                         searchPlaceholder="Type to search..."
                         emptyText="No cities found."
+                        onSearchChange={setPickupCitySearchQuery}
                         footerAction={
                           <Button
                             type="button"
@@ -345,6 +389,7 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
                         placeholder="Search city..."
                         searchPlaceholder="Type to search..."
                         emptyText="No cities found."
+                        onSearchChange={setDropoffCitySearchQuery}
                         footerAction={
                           <Button
                             type="button"
@@ -379,6 +424,7 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
                       placeholder="Search truck type..."
                       searchPlaceholder="Type to search..."
                       emptyText="No truck types found."
+                      onSearchChange={setTruckTypeSearchQuery}
                       footerAction={
                         <Button
                           type="button"
@@ -476,6 +522,7 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
       <ClientQuickCreateDialog
         open={isClientDialogOpen}
         onOpenChange={setIsClientDialogOpen}
+        initialName={clientSearchQuery}
         onSuccess={(client) => {
           form.setValue('clientId', client.id)
           toast.success(`Client "${client.name}" selected`)
@@ -485,6 +532,7 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
       <CityQuickCreateDialog
         open={isPickupCityDialogOpen}
         onOpenChange={setIsPickupCityDialogOpen}
+        initialName={pickupCitySearchQuery}
         onSuccess={(city) => {
           form.setValue('pickupCityId', city.id)
           toast.success(`City "${city.name}" selected for pickup`)
@@ -494,6 +542,7 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
       <CityQuickCreateDialog
         open={isDropoffCityDialogOpen}
         onOpenChange={setIsDropoffCityDialogOpen}
+        initialName={dropoffCitySearchQuery}
         onSuccess={(city) => {
           form.setValue('dropoffCityId', city.id)
           toast.success(`City "${city.name}" selected for dropoff`)
@@ -503,9 +552,20 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
       <TruckTypeQuickCreateDialog
         open={isTruckTypeDialogOpen}
         onOpenChange={setIsTruckTypeDialogOpen}
+        initialName={truckTypeSearchQuery}
         onSuccess={(truckType) => {
           form.setValue('truckTypeId', truckType.id)
           toast.success(`Truck type "${truckType.name}" selected`)
+        }}
+      />
+
+      <DemandCategoryQuickCreateDialog
+        open={isDemandCategoryDialogOpen}
+        onOpenChange={setIsDemandCategoryDialogOpen}
+        initialName={demandCategorySearchQuery}
+        onSuccess={(category) => {
+          form.setValue('demandCategoryId', category.id)
+          toast.success(`${categoryLabel} "${category.name}" selected`)
         }}
       />
     </Dialog>

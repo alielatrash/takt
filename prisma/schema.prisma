@@ -212,6 +212,7 @@ model Organization {
   parties           Party[]
   locations         Location[]
   resourceTypes     ResourceType[]
+  demandCategories  DemandCategory[]
   planningWeeks     PlanningWeek[]
   demandForecasts   DemandForecast[]
   supplyCommitments SupplyCommitment[]
@@ -298,6 +299,12 @@ model OrganizationSettings {
   demandLabelPlural       String @default("Demand Forecasts")
   supplyLabel             String @default("Supply")
   supplyLabelPlural       String @default("Supply Commitments")
+
+  // Demand category configuration
+  demandCategoryLabel         String  @default("Category")
+  demandCategoryLabelPlural   String  @default("Categories")
+  demandCategoryEnabled       Boolean @default(false) // Disabled by default (opt-in)
+  demandCategoryRequired      Boolean @default(false) // Each org decides if required
 
   // Planning configuration
   planningCycle PlanningCycle @default(DAILY) // DAILY, WEEKLY, MONTHLY
@@ -472,6 +479,26 @@ model ResourceType {
   @@index([isActive])
 }
 
+// DemandCategory: Optional categorization for demand forecasts (e.g., Vertical, Type, Class)
+model DemandCategory {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String // e.g., "Domestic", "Ports", "Express", "Standard"
+  code           String? // Optional short code for display
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  demandForecasts DemandForecast[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([name])
+  @@index([isActive])
+}
+
 // ============ PLANNING ============
 
 model PlanningWeek {
@@ -517,9 +544,10 @@ model DemandForecast {
   routeKey          String // Auto-generated: "PICKUP->DROPOFF" (replaces citym)
 
   // Classification
-  vertical       Vertical? // Optional: DOMESTIC, PORTS, etc. (industry-specific)
-  resourceTypeId String
-  resourceType   ResourceType @relation(fields: [resourceTypeId], references: [id])
+  demandCategoryId String? // Optional: Organization-defined category (e.g., Domestic/Ports, Express/Standard)
+  demandCategory   DemandCategory? @relation(fields: [demandCategoryId], references: [id])
+  resourceTypeId   String
+  resourceType     ResourceType @relation(fields: [resourceTypeId], references: [id])
 
   // Daily quantity forecasts (Sunday to Saturday) - for weekly planning
   day1Qty  Int @default(0) // Sunday
@@ -545,11 +573,11 @@ model DemandForecast {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@unique([organizationId, planningWeekId, partyId, pickupLocationId, dropoffLocationId, resourceTypeId])
+  @@unique([organizationId, planningWeekId, partyId, pickupLocationId, dropoffLocationId, resourceTypeId, demandCategoryId])
   @@index([organizationId])
   @@index([routeKey])
   @@index([planningWeekId])
-  @@index([vertical])
+  @@index([demandCategoryId])
   @@index([partyId])
   @@index([pickupLocationId])
   @@index([dropoffLocationId])
@@ -557,11 +585,6 @@ model DemandForecast {
   @@index([createdById])
   @@index([planningWeekId, partyId])
   @@index([planningWeekId, routeKey])
-}
-
-enum Vertical {
-  DOMESTIC
-  PORTS
 }
 
 model SupplyCommitment {

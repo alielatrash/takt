@@ -15,6 +15,10 @@ const updateSettingsSchema = z.object({
   demandLabelPlural: z.string().min(1).max(50).optional(),
   supplyLabel: z.string().min(1).max(50).optional(),
   supplyLabelPlural: z.string().min(1).max(50).optional(),
+  demandCategoryLabel: z.string().min(1).max(50).optional(),
+  demandCategoryLabelPlural: z.string().min(1).max(50).optional(),
+  demandCategoryEnabled: z.boolean().optional(),
+  demandCategoryRequired: z.boolean().optional(),
 })
 
 // GET /api/organization/settings - Get organization settings
@@ -119,8 +123,17 @@ export async function PATCH(request: Request) {
     })
   } catch (error) {
     console.error('Update organization settings error:', error)
+    // Include error details in development
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
     return NextResponse.json(
-      { success: false, error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' } },
+      {
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: errorMessage,
+          ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined })
+        }
+      },
       { status: 500 }
     )
   }

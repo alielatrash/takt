@@ -64,11 +64,12 @@ export async function GET(request: Request) {
     const pickupLocationIds = [...new Set(forecasts.map(f => f.pickupLocationId))]
     const dropoffLocationIds = [...new Set(forecasts.map(f => f.dropoffLocationId))]
     const resourceTypeIds = [...new Set(forecasts.map(f => f.resourceTypeId))]
+    const demandCategoryIds = [...new Set(forecasts.map(f => f.demandCategoryId).filter((id): id is string => id !== null))]
     const planningWeekIds = [...new Set(forecasts.map(f => f.planningWeekId))]
     const createdByIds = [...new Set(forecasts.map(f => f.createdById))]
 
     // Batch fetch all related data in parallel (with org scoping)
-    const [parties, pickupLocations, dropoffLocations, resourceTypes, planningWeeks, users] = await Promise.all([
+    const [parties, pickupLocations, dropoffLocations, resourceTypes, demandCategories, planningWeeks, users] = await Promise.all([
       prisma.party.findMany({
         where: orgScopedWhere(session, { id: { in: partyIds } }),
         select: { id: true, name: true },
@@ -85,6 +86,10 @@ export async function GET(request: Request) {
         where: orgScopedWhere(session, { id: { in: resourceTypeIds } }),
         select: { id: true, name: true },
       }),
+      prisma.demandCategory.findMany({
+        where: orgScopedWhere(session, { id: { in: demandCategoryIds } }),
+        select: { id: true, name: true, code: true },
+      }),
       prisma.planningWeek.findMany({
         where: orgScopedWhere(session, { id: { in: planningWeekIds } }),
         select: { id: true, weekStart: true, weekEnd: true, year: true, weekNumber: true },
@@ -100,6 +105,7 @@ export async function GET(request: Request) {
     const pickupLocationMap = new Map(pickupLocations.map(l => [l.id, l]))
     const dropoffLocationMap = new Map(dropoffLocations.map(l => [l.id, l]))
     const resourceTypeMap = new Map(resourceTypes.map(r => [r.id, r]))
+    const demandCategoryMap = new Map(demandCategories.map(c => [c.id, c]))
     const planningWeekMap = new Map(planningWeeks.map(w => [w.id, w]))
     const userMap = new Map(users.map(u => [u.id, u]))
 
@@ -112,6 +118,7 @@ export async function GET(request: Request) {
       pickupCity: pickupLocationMap.get(forecast.pickupLocationId)!, // Backward compatibility
       dropoffLocation: dropoffLocationMap.get(forecast.dropoffLocationId)!,
       dropoffCity: dropoffLocationMap.get(forecast.dropoffLocationId)!, // Backward compatibility
+      demandCategory: forecast.demandCategoryId ? demandCategoryMap.get(forecast.demandCategoryId) || null : null,
       resourceType: resourceTypeMap.get(forecast.resourceTypeId)!,
       truckType: resourceTypeMap.get(forecast.resourceTypeId)!, // Backward compatibility
       planningWeek: planningWeekMap.get(forecast.planningWeekId)!,
@@ -178,6 +185,20 @@ export async function POST(request: Request) {
 
     const data = validationResult.data
 
+    // Check organization settings for demand category configuration
+    const settings = await prisma.organizationSettings.findUnique({
+      where: { organizationId: session.user.currentOrgId },
+      select: { demandCategoryEnabled: true, demandCategoryRequired: true },
+    })
+
+    // If category is enabled and required, validate it's provided
+    if (settings?.demandCategoryEnabled && settings?.demandCategoryRequired && !data.demandCategoryId) {
+      return NextResponse.json(
+        { success: false, error: { code: 'VALIDATION_ERROR', message: 'Category is required' } },
+        { status: 400 }
+      )
+    }
+
     // Run all validation queries in parallel (with org scoping)
     const [planningWeek, pickupLocation, dropoffLocation, existing] = await Promise.all([
       prisma.planningWeek.findFirst({ where: orgScopedWhere(session, { id: data.planningWeekId }) }),
@@ -237,7 +258,7 @@ export async function POST(request: Request) {
         partyId: data.clientId,
         pickupLocationId: data.pickupCityId,
         dropoffLocationId: data.dropoffCityId,
-        vertical: data.vertical,
+        demandCategoryId: data.demandCategoryId || null,
         resourceTypeId: data.truckTypeId,
         day1Qty: data.day1Loads || 0,
         day2Qty: data.day2Loads || 0,
@@ -259,6 +280,7 @@ export async function POST(request: Request) {
         party: { select: { id: true, name: true } },
         pickupLocation: { select: { id: true, name: true, code: true, region: true } },
         dropoffLocation: { select: { id: true, name: true, code: true, region: true } },
+        demandCategory: { select: { id: true, name: true, code: true } },
         resourceType: { select: { id: true, name: true } },
         planningWeek: { select: { id: true, weekStart: true, weekEnd: true } },
         createdBy: { select: { id: true, firstName: true, lastName: true } },
