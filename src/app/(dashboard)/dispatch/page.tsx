@@ -36,7 +36,7 @@ export default function DispatchSheetPage() {
 
     const headers = [
       'Fleet Partner',
-      'Route (CITYm)',
+      'Route',
       'Sunday',
       'Monday',
       'Tuesday',

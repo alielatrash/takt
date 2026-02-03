@@ -146,7 +146,7 @@ export default function DashboardPage() {
                   {data?.metrics.activeRoutes ?? 0}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  CITYm combinations
+                  active routes
                 </p>
               </>
             )}

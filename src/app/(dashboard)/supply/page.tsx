@@ -34,7 +34,7 @@ export default function SupplyPlanningPage() {
     if (!targetsData?.data?.length) return
 
     const headers = [
-      'Route (CITYm)',
+      'Route',
       'Target Sun',
       'Target Mon',
       'Target Tue',
@@ -120,7 +120,7 @@ export default function SupplyPlanningPage() {
     <div>
       <PageHeader
         title="Supply Planning"
-        description="Manage supplier commitments by route (CITYm)"
+        description="Manage supplier commitments by route"
       >
         <WeekSelector value={selectedWeekId} onValueChange={setSelectedWeekId} />
         <Button variant="outline" onClick={handleDownload} disabled={!targetsData?.data?.length}>

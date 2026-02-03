@@ -49,7 +49,7 @@ export function AccuracyTable({ data, isLoading }: AccuracyTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Route (CITYm)</TableHead>
+              <TableHead>Route</TableHead>
               <TableHead className="text-right">Forecasted</TableHead>
               <TableHead className="text-right">Actual</TableHead>
               <TableHead className="text-right">Fulfilled</TableHead>

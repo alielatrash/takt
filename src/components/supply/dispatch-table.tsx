@@ -179,7 +179,7 @@ export function DispatchTable({ data, isLoading, weekStart }: DispatchTableProps
             <TableRow className="bg-[#4a7c59] hover:bg-[#4a7c59]">
               <TableHead className="w-8 text-white"></TableHead>
               <TableHead className="text-white font-semibold">
-                {groupBy === 'supplier' ? 'Fleet Partner' : 'Route (CITYm)'}
+                {groupBy === 'supplier' ? 'Fleet Partner' : 'Route'}
               </TableHead>
               {WEEK_DAYS.map((day, index) => (
                 <TableHead key={day.key} className="text-center w-20 text-white">
