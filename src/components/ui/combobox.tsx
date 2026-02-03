@@ -80,14 +80,7 @@ export function Combobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command
-          filter={(value, search) => {
-            // Custom filter: exact substring match (case-insensitive)
-            const searchLower = search.toLowerCase()
-            const valueLower = value.toLowerCase()
-            return valueLower.includes(searchLower) ? 1 : 0
-          }}
-        >
+        <Command shouldFilter={false}>
           <CommandInput
             placeholder={searchPlaceholder}
             value={searchValue}
@@ -96,32 +89,40 @@ export function Combobox({
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
-              {options.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  value={option.label}
-                  keywords={[option.label, option.description || '']}
-                  onSelect={() => {
-                    onValueChange?.(option.value)
-                    setOpen(false)
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      'mr-2 h-4 w-4',
-                      value === option.value ? 'opacity-100' : 'opacity-0'
-                    )}
-                  />
-                  <div className="flex flex-col">
-                    <span>{option.label}</span>
-                    {option.description && (
-                      <span className="text-xs text-muted-foreground">
-                        {option.description}
-                      </span>
-                    )}
-                  </div>
-                </CommandItem>
-              ))}
+              {options
+                .filter((option) => {
+                  if (!searchValue) return true
+                  const searchLower = searchValue.toLowerCase()
+                  const labelMatch = option.label.toLowerCase().includes(searchLower)
+                  const descriptionMatch = option.description?.toLowerCase().includes(searchLower)
+                  return labelMatch || descriptionMatch
+                })
+                .map((option) => (
+                  <CommandItem
+                    key={option.value}
+                    value={option.value}
+                    onSelect={() => {
+                      onValueChange?.(option.value)
+                      setOpen(false)
+                      setSearchValue('')
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        'mr-2 h-4 w-4',
+                        value === option.value ? 'opacity-100' : 'opacity-0'
+                      )}
+                    />
+                    <div className="flex flex-col">
+                      <span>{option.label}</span>
+                      {option.description && (
+                        <span className="text-xs text-muted-foreground">
+                          {option.description}
+                        </span>
+                      )}
+                    </div>
+                  </CommandItem>
+                ))}
             </CommandGroup>
             {footerAction && (
               <div className="border-t p-2">
