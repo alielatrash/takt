@@ -12,7 +12,7 @@ import {
   extractOrgNameFromDomain,
   generateSlug,
 } from '@/lib/domain'
-import { PlanningCycle } from '@prisma/client'
+import { PlanningCycle, WeekStartDay } from '@prisma/client'
 
 export async function POST(request: Request) {
   try {
@@ -136,6 +136,7 @@ export async function POST(request: Request) {
           organizationId: org.id,
           ...organizationSettings,
           planningCycle: organizationSettings.planningCycle as PlanningCycle,
+          weekStartDay: organizationSettings.weekStartDay as WeekStartDay,
         } : {
           organizationId: org.id,
           locationLabel: 'City',
@@ -336,6 +337,7 @@ export async function POST(request: Request) {
           organizationId: org.id,
           ...organizationSettings,
           planningCycle: organizationSettings.planningCycle as PlanningCycle,
+          weekStartDay: organizationSettings.weekStartDay as WeekStartDay,
         } : {
           organizationId: org.id,
           locationLabel: 'City',
