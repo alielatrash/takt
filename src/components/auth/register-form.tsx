@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, Mail, Phone, User, Lock, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Mail, User, Lock, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PhoneInput } from '@/components/ui/phone-input'
 import {
   Form,
   FormControl,
@@ -311,16 +312,12 @@ export function RegisterForm() {
               name="mobileNumber"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Mobile Number (optional)</FormLabel>
+                  <FormLabel>Phone Number *</FormLabel>
                   <FormControl>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="+966xxxxxxxxx"
-                        className="pl-9"
-                        {...field}
-                      />
-                    </div>
+                    <PhoneInput
+                      value={field.value}
+                      onChange={(value) => field.onChange(value)}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

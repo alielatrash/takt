@@ -20,9 +20,9 @@ export const registerSchema = z.object({
     .max(50, 'Last name must be less than 50 characters'),
   mobileNumber: z
     .string()
-    .optional()
+    .min(1, 'Mobile number is required')
     .refine(
-      (val) => !val || /^\+?[1-9]\d{7,14}$/.test(val),
+      (val) => /^\+[1-9]\d{7,14}$/.test(val),
       'Invalid mobile number format'
     ),
   role: z.enum(['DEMAND_PLANNER', 'SUPPLY_PLANNER'], {

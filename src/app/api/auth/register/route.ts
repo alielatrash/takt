@@ -54,6 +54,26 @@ export async function POST(request: Request) {
       )
     }
 
+    // Check if mobile number already exists
+    if (mobileNumber) {
+      const existingMobileUser = await prisma.user.findFirst({
+        where: { mobileNumber },
+      })
+
+      if (existingMobileUser) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'MOBILE_EXISTS',
+              message: 'An account with this mobile number already exists',
+            },
+          },
+          { status: 409 }
+        )
+      }
+    }
+
     // Extract domain from email
     const domain = extractDomain(normalizedEmail)
 
