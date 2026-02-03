@@ -104,6 +104,7 @@ export async function POST(request: Request) {
           columnMapping.name,
           'name',
           'Name',
+          'entity',  // Redash query column name
           'shipper_name',
           'supplier_name',
           'partner_entity_name',
