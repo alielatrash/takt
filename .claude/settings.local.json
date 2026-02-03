@@ -51,7 +51,10 @@
       "Bash(npx prisma validate:*)",
       "Bash(node -e:*)",
       "Bash(kill:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(tail:*)",
+      "Bash(python3:*)",
+      "Bash(git reset:*)"
     ]
   }
 }
