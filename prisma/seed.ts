@@ -628,7 +628,7 @@ async function main() {
   })
   console.log('✓ Created organization settings')
 
-  // 3. Claim trella.app and teamtakt.app domains
+  // 3. Claim trella.app domain only (teamtakt.app should remain unclaimed for new signups)
   await prisma.organizationDomain.upsert({
     where: { domain: 'trella.app' },
     update: {},
@@ -639,17 +639,7 @@ async function main() {
       isPrimary: true,
     },
   })
-  await prisma.organizationDomain.upsert({
-    where: { domain: 'teamtakt.app' },
-    update: {},
-    create: {
-      organizationId: trellaOrg.id,
-      domain: 'teamtakt.app',
-      isVerified: true,
-      isPrimary: false,
-    },
-  })
-  console.log('✓ Claimed domains')
+  console.log('✓ Claimed trella.app domain')
 
   // 4. Seed public email domains
   const publicDomains = [
