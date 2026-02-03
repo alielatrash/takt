@@ -83,11 +83,11 @@ export async function POST(request: Request) {
 
         const totalRecords = parseResult.data.length
 
-        // Determine column names (support custom mapping)
-        const nameColumn = columnMapping.name || 'name' || 'Name' || 'shipper_name' || 'supplier_name' || 'partner_entity_name'
-        const regionColumn = columnMapping.region || 'region' || 'Region'
-        const pointOfContactColumn = columnMapping.pointOfContact || 'pointOfContact' || 'point_of_contact' || 'partner_name'
-        const phoneNumberColumn = columnMapping.phoneNumber || 'phoneNumber' || 'phone_number' || 'mobile_number'
+        // Log CSV structure for debugging
+        if (totalRecords > 0) {
+          const firstRow = parseResult.data[0] as Record<string, unknown>
+          console.log('[CSV Import] First row columns:', Object.keys(firstRow))
+        }
 
         // Import based on entity type with progress updates
         for (const [index, rowData] of parseResult.data.entries()) {
@@ -100,28 +100,64 @@ export async function POST(request: Request) {
             const row = rowData as Record<string, unknown>
 
         // Try to find name in various possible column names
-        const name = (
-          row[nameColumn] ||
-          row['name'] ||
-          row['Name'] ||
-          row['shipper_name'] ||
-          row['supplier_name'] ||
-          row['partner_entity_name'] ||
-          row['partner_name'] ||
-          row['city_name'] ||
-          row['truck_type']
-        ) as string
+        const possibleNameColumns = [
+          columnMapping.name,
+          'name',
+          'Name',
+          'shipper_name',
+          'supplier_name',
+          'partner_entity_name',
+          'partner_name',
+          'city_name',
+          'truck_type'
+        ].filter(Boolean)
 
-        if (!name || String(name).trim() === '') {
-          results.errors.push(`Row ${index + 1}: Name is required`)
+        let name: string | null = null
+        for (const col of possibleNameColumns) {
+          if (row[col!] && String(row[col!]).trim() !== '') {
+            name = String(row[col!]).trim()
+            break
+          }
+        }
+
+        if (!name) {
+          const availableColumns = Object.keys(row).slice(0, 5).join(', ')
+          results.errors.push(`Row ${index + 1}: Name column not found. Available columns: ${availableColumns}`)
           results.skipped++
           continue
         }
 
-        const trimmedName = String(name).trim()
-        const region = row[regionColumn] ? String(row[regionColumn]).trim() : null
-        const pointOfContact = row[pointOfContactColumn] ? String(row[pointOfContactColumn]).trim() : null
-        const phoneNumber = row[phoneNumberColumn] ? String(row[phoneNumberColumn]).trim() : null
+        const trimmedName = name
+
+        // Try to find region in various possible column names
+        const possibleRegionColumns = [columnMapping.region, 'region', 'Region'].filter(Boolean)
+        let region: string | null = null
+        for (const col of possibleRegionColumns) {
+          if (row[col!]) {
+            region = String(row[col!]).trim()
+            break
+          }
+        }
+
+        // Try to find point of contact
+        const possiblePocColumns = [columnMapping.pointOfContact, 'pointOfContact', 'point_of_contact', 'partner_name'].filter(Boolean)
+        let pointOfContact: string | null = null
+        for (const col of possiblePocColumns) {
+          if (row[col!]) {
+            pointOfContact = String(row[col!]).trim()
+            break
+          }
+        }
+
+        // Try to find phone number
+        const possiblePhoneColumns = [columnMapping.phoneNumber, 'phoneNumber', 'phone_number', 'mobile_number'].filter(Boolean)
+        let phoneNumber: string | null = null
+        for (const col of possiblePhoneColumns) {
+          if (row[col!]) {
+            phoneNumber = String(row[col!]).trim()
+            break
+          }
+        }
 
         switch (entityType) {
           case 'clients': {

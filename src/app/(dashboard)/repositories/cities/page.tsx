@@ -344,8 +344,17 @@ export default function CitiesPage() {
         open={isCsvUrlDialogOpen}
         onOpenChange={setIsCsvUrlDialogOpen}
         entityType="cities"
-        onSuccess={() => {
-          toast.success('Cities imported from URL successfully')
+        onSuccess={(data) => {
+          if (data && data.created > 0) {
+            toast.success(`Successfully imported ${data.created} cities`)
+          } else if (data && data.skipped > 0 && data.errors && data.errors.length > 0) {
+            toast.error(`Import failed: ${data.errors[0]}. Check console for details.`)
+            console.error('Import errors:', data.errors)
+          } else if (data && data.skipped > 0) {
+            toast.warning(`All ${data.skipped} cities were skipped (already exist)`)
+          } else {
+            toast.success('Cities imported from URL successfully')
+          }
           setIsCsvUrlDialogOpen(false)
         }}
       />
