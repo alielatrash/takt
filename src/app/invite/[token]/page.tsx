@@ -23,7 +23,7 @@ const acceptInvitationSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  mobileNumber: z.string().optional(),
+  mobileNumber: z.string().min(1, 'Mobile number is required'),
 })
 
 type AcceptInvitationFormData = z.infer<typeof acceptInvitationSchema>
@@ -228,7 +228,7 @@ export default function AcceptInvitationPage() {
                 name="mobileNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Mobile Number (Optional)</FormLabel>
+                    <FormLabel>Mobile Number</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />

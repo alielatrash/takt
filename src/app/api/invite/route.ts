@@ -8,7 +8,7 @@ const acceptInvitationSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  mobileNumber: z.string().optional(),
+  mobileNumber: z.string().min(1, 'Mobile number is required'),
 })
 
 // GET: Verify invitation token and get details
@@ -175,7 +175,7 @@ export async function POST(request: Request) {
           email: invitation.email,
           firstName,
           lastName,
-          mobileNumber: mobileNumber || null,
+          mobileNumber, // Required field
           role: invitation.functionalRole,
           passwordHash,
           emailVerified: true, // Email is verified since they clicked the invitation link
