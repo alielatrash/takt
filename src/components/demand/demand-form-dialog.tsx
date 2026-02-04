@@ -38,7 +38,7 @@ import { useOrganizationSettings } from '@/hooks/use-organization'
 import { createDemandForecastSchema, type CreateDemandForecastInput } from '@/lib/validations/demand'
 import { WEEK_DAYS } from '@/types'
 import type { DemandForecast, Party, Location, ResourceType } from '@prisma/client'
-import { format, addWeeks, startOfMonth } from 'date-fns'
+import { format, addWeeks, startOfMonth, addDays, startOfDay, isBefore } from 'date-fns'
 import { ClientQuickCreateDialog } from '@/components/repositories/client-quick-create-dialog'
 import { CityQuickCreateDialog } from '@/components/repositories/city-quick-create-dialog'
 import { TruckTypeQuickCreateDialog } from '@/components/repositories/truck-type-quick-create-dialog'
@@ -108,17 +108,17 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
       dropoffCityId: '',
       demandCategoryId: '',
       truckTypeIds: [],
-      day1Loads: 0,
-      day2Loads: 0,
-      day3Loads: 0,
-      day4Loads: 0,
-      day5Loads: 0,
-      day6Loads: 0,
-      day7Loads: 0,
-      week1Loads: 0,
-      week2Loads: 0,
-      week3Loads: 0,
-      week4Loads: 0,
+      day1Loads: undefined,
+      day2Loads: undefined,
+      day3Loads: undefined,
+      day4Loads: undefined,
+      day5Loads: undefined,
+      day6Loads: undefined,
+      day7Loads: undefined,
+      week1Loads: undefined,
+      week2Loads: undefined,
+      week3Loads: undefined,
+      week4Loads: undefined,
     },
   })
 
@@ -179,6 +179,27 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
     })
   }, [isMonthlyPlanning, planningWeeksData, planningWeekId])
 
+  // Calculate day dates and check if past for weekly planning
+  const dayInfo = useMemo(() => {
+    if (isMonthlyPlanning || !planningWeeksData?.data) return []
+
+    const selectedWeek = planningWeeksData.data.find(w => w.id === planningWeekId)
+    if (!selectedWeek) return []
+
+    const weekStart = startOfDay(new Date(selectedWeek.weekStart))
+    const today = startOfDay(new Date())
+
+    return WEEK_DAYS.map((_, index) => {
+      const dayDate = addDays(weekStart, index)
+      const isPast = isBefore(dayDate, today)
+
+      return {
+        date: format(dayDate, 'MMM d'), // e.g., "Feb 1"
+        isPast,
+      }
+    })
+  }, [isMonthlyPlanning, planningWeeksData, planningWeekId])
+
   useEffect(() => {
     if (open && planningWeekId) {
       if (forecast) {
@@ -209,17 +230,17 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
           dropoffCityId: '',
           demandCategoryId: '',
           truckTypeIds: [],
-          day1Loads: 0,
-          day2Loads: 0,
-          day3Loads: 0,
-          day4Loads: 0,
-          day5Loads: 0,
-          day6Loads: 0,
-          day7Loads: 0,
-          week1Loads: 0,
-          week2Loads: 0,
-          week3Loads: 0,
-          week4Loads: 0,
+          day1Loads: undefined,
+          day2Loads: undefined,
+          day3Loads: undefined,
+          day4Loads: undefined,
+          day5Loads: undefined,
+          day6Loads: undefined,
+          day7Loads: undefined,
+          week1Loads: undefined,
+          week2Loads: undefined,
+          week3Loads: undefined,
+          week4Loads: undefined,
         })
       }
     }
@@ -485,27 +506,45 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
               ) : (
                 // Weekly planning: Show day inputs
                 <div className="grid grid-cols-7 gap-2 mt-2">
-                  {WEEK_DAYS.map((day, index) => (
-                    <FormField
-                      key={day.key}
-                      control={form.control}
-                      name={`day${index + 1}Loads` as keyof CreateDemandForecastInput}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs text-muted-foreground">{day.label}</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              className="text-center"
-                              {...field}
-                              onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  ))}
+                  {WEEK_DAYS.map((day, index) => {
+                    const dayData = dayInfo[index]
+                    const isPast = dayData?.isPast || false
+
+                    return (
+                      <FormField
+                        key={day.key}
+                        control={form.control}
+                        name={`day${index + 1}Loads` as keyof CreateDemandForecastInput}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className={`text-xs ${isPast ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
+                              {day.label}
+                              {dayData && (
+                                <div className="text-[10px] font-normal">
+                                  {dayData.date}
+                                </div>
+                              )}
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                placeholder=""
+                                disabled={isPast}
+                                className={`text-center ${isPast ? 'bg-muted cursor-not-allowed' : ''}`}
+                                {...field}
+                                value={field.value ?? ''}
+                                onChange={(e) => {
+                                  const value = e.target.value
+                                  field.onChange(value === '' ? undefined : parseInt(value) || 0)
+                                }}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    )
+                  })}
                 </div>
               )}
             </div>
