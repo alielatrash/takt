@@ -74,13 +74,13 @@ export function DemandVsCommittedChart({
             borderRadius: '0.5rem',
           }}
           labelStyle={{ color: 'hsl(var(--popover-foreground))' }}
-          formatter={(value: number, name: string) => {
+          formatter={(value: number | undefined, name: string | undefined) => {
             const labels: Record<string, string> = {
               demand: 'Demand',
               committed: 'Committed',
               gap: 'Gap',
             }
-            return [value, labels[name] || name]
+            return [value ?? 0, name ? (labels[name] || name) : '']
           }}
           content={({ active, payload }) => {
             if (!active || !payload || payload.length === 0) return null

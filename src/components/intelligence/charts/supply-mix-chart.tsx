@@ -106,7 +106,7 @@ export function SupplyMixChart({ data, isLoading, height = 400 }: SupplyMixChart
               outerRadius="80%"
               paddingAngle={2}
               dataKey="value"
-              label={({ percentage }) => `${percentage.toFixed(1)}%`}
+              label={({ percent }: any) => `${(percent * 100).toFixed(1)}%`}
               labelLine={false}
             >
               {donutData.map((entry, index) => (
@@ -119,9 +119,9 @@ export function SupplyMixChart({ data, isLoading, height = 400 }: SupplyMixChart
                 border: '1px solid hsl(var(--border))',
                 borderRadius: '0.5rem',
               }}
-              formatter={(value: number, name: string, props: any) => [
-                `${value} trucks (${props.payload.percentage.toFixed(1)}%)`,
-                name,
+              formatter={(value: number | undefined, name: string | undefined, props: any) => [
+                `${value ?? 0} trucks (${props?.payload?.percentage?.toFixed(1) ?? 0}%)`,
+                name ?? '',
               ]}
             />
             <Legend
@@ -156,7 +156,7 @@ export function SupplyMixChart({ data, isLoading, height = 400 }: SupplyMixChart
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '0.5rem',
                 }}
-                formatter={(value: number) => [`${value.toFixed(1)}%`, 'Share']}
+                formatter={(value: number | undefined) => [`${(value ?? 0).toFixed(1)}%`, 'Share']}
               />
               <Line
                 dataKey="share"

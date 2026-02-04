@@ -82,7 +82,7 @@ export function CapacityUtilizationChart({
             borderRadius: '0.5rem',
           }}
           labelStyle={{ color: 'hsl(var(--popover-foreground))' }}
-          formatter={(value: number) => [`${value.toFixed(1)}%`, 'Coverage']}
+          formatter={(value: number | undefined) => [`${(value ?? 0).toFixed(1)}%`, 'Coverage']}
         />
         <Legend
           wrapperStyle={{ paddingTop: '10px' }}

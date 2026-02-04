@@ -17,6 +17,11 @@ import {
   Mail,
   Phone,
   MapPin,
+  Lightbulb,
+  ClipboardCheck,
+  Send,
+  Target,
+  Zap,
 } from 'lucide-react'
 
 export default function LandingPage() {
@@ -71,16 +76,16 @@ export default function LandingPage() {
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <div>
             <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-2 text-blue-700">
-              <Brain className="h-4 w-4" />
-              <span className="text-sm font-medium">Weekly Demand & Supply Planning</span>
+              <Lightbulb className="h-4 w-4" />
+              <span className="text-sm font-medium">Intelligence-Powered Planning</span>
             </div>
 
             <h1 className="mb-6 text-5xl font-bold leading-tight text-slate-900 lg:text-6xl">
-              Balance Freight Demand and Supply Every Week
+              Plan Smarter with Real-Time Supply & Demand Intelligence
             </h1>
 
             <p className="mb-8 text-lg leading-relaxed text-slate-600">
-              Coordinate client demand forecasts with supplier commitments. Plan weekly truck capacity across routes, truck types, and ensure reliable freight delivery.
+              Coordinate demand forecasts with supplier commitments. Visualize gaps, optimize coverage, and collaborate seamlessly with 8 powerful analytics charts and automated insights.
             </p>
 
             <div className="flex flex-col gap-4 sm:flex-row">
@@ -122,16 +127,16 @@ export default function LandingPage() {
 
         <div className="mt-20 grid grid-cols-3 gap-8 border-t border-slate-200 pt-12">
           <div className="text-center">
-            <div className="mb-2 text-4xl font-bold text-slate-900">3 Roles</div>
-            <div className="text-sm text-slate-600">Demand, Supply & Admin</div>
+            <div className="mb-2 text-4xl font-bold text-slate-900">8 Charts</div>
+            <div className="text-sm text-slate-600">Real-Time Analytics & Insights</div>
           </div>
           <div className="text-center">
-            <div className="mb-2 text-4xl font-bold text-slate-900">Weekly</div>
-            <div className="text-sm text-slate-600">Planning Cycles</div>
+            <div className="mb-2 text-4xl font-bold text-slate-900">94.5%</div>
+            <div className="text-sm text-slate-600">Average Coverage Rate</div>
           </div>
           <div className="text-center">
             <div className="mb-2 text-4xl font-bold text-slate-900">7 Days</div>
-            <div className="text-sm text-slate-600">Daily Load Planning</div>
+            <div className="text-sm text-slate-600">Weekly Planning Horizon</div>
           </div>
         </div>
       </section>
@@ -141,50 +146,50 @@ export default function LandingPage() {
         <div className="container mx-auto px-6">
           <div className="mb-16 text-center">
             <h2 className="mb-4 text-4xl font-bold text-slate-900">
-              Streamline Your Weekly Planning Process
+              Everything You Need to Master Supply & Demand
             </h2>
             <p className="mx-auto max-w-2xl text-lg text-slate-600">
-              Purpose-built tools for demand planners and supply planners to collaborate and balance capacity
+              From intelligent forecasting to supplier collaboration, gain complete visibility and control over your weekly planning
             </p>
           </div>
 
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
+                icon: Lightbulb,
+                color: 'bg-amber-100 text-amber-600',
+                title: 'Intelligence Dashboard',
+                description: '8 powerful analytics charts with automated insights. Track demand vs supply, coverage gaps, vendor contribution, and capacity utilization in real-time.',
+              },
+              {
                 icon: ClipboardList,
                 color: 'bg-blue-100 text-blue-600',
-                title: 'Demand Forecasting',
-                description: 'Input weekly demand by client, route, and truck type. Plan daily load requirements across 7-day cycles.',
+                title: 'Demand Planning',
+                description: 'Multi-week forecasting with route-level precision. Plan daily load requirements across 7-day cycles by client, route, and truck type.',
               },
               {
                 icon: Truck,
-                color: 'bg-purple-100 text-purple-600',
-                title: 'Supply Commitment',
-                description: 'Track supplier commitments by route and truck type. Match available capacity to forecasted demand.',
-              },
-              {
-                icon: Calendar,
                 color: 'bg-green-100 text-green-600',
-                title: 'Weekly Planning Cycles',
-                description: 'Organize planning in weekly windows (Sunday-Saturday). Lock completed weeks and focus on upcoming demand.',
+                title: 'Supply Management',
+                description: 'Track supplier commitments by route and day. Match available capacity to forecasted demand with gap analysis and coverage metrics.',
               },
               {
-                icon: Globe,
-                color: 'bg-yellow-100 text-yellow-600',
-                title: 'Multi-Route Management',
-                description: 'Manage capacity across city pairs and regions. Handle domestic and ports verticals separately.',
+                icon: Send,
+                color: 'bg-purple-100 text-purple-600',
+                title: 'Supplier Collaboration',
+                description: 'Share weekly plans directly with suppliers. Enable seamless communication and commitment tracking with your supply partners.',
               },
               {
-                icon: BarChart3,
+                icon: ClipboardCheck,
+                color: 'bg-teal-100 text-teal-600',
+                title: 'Dispatch Sheet',
+                description: 'Daily execution view for operations teams. Track actual pickups and deliveries against planned commitments.',
+              },
+              {
+                icon: Target,
                 color: 'bg-red-100 text-red-600',
-                title: 'Demand vs Supply Analytics',
-                description: 'Compare forecasted demand against committed supply. Identify gaps and overcapacity by route and day.',
-              },
-              {
-                icon: TrendingUp,
-                color: 'bg-indigo-100 text-indigo-600',
-                title: 'Actuals Tracking',
-                description: 'Integrate actual shipper requests and fleet completion data to improve future planning accuracy.',
+                title: 'Performance Reports',
+                description: 'Forecast accuracy tracking and vendor performance analytics. Make data-driven decisions to continuously improve planning.',
               },
             ].map((feature, i) => (
               <div key={i} className="rounded-2xl border border-slate-200 bg-white p-8 transition-all hover:shadow-lg">
@@ -195,6 +200,109 @@ export default function LandingPage() {
                 <p className="leading-relaxed text-slate-600">{feature.description}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Intelligence Showcase */}
+      <section className="bg-gradient-to-br from-slate-900 to-slate-800 py-20 text-white lg:py-28">
+        <div className="container mx-auto px-6">
+          <div className="grid items-center gap-12 lg:grid-cols-2">
+            <div>
+              <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-amber-500/20 px-4 py-2 text-amber-300">
+                <Zap className="h-4 w-4" />
+                <span className="text-sm font-medium">New Feature</span>
+              </div>
+
+              <h2 className="mb-6 text-4xl font-bold">
+                Intelligence That Drives Better Decisions
+              </h2>
+              <p className="mb-8 text-lg text-slate-300">
+                Our Intelligence dashboard gives you instant visibility into your supply-demand balance with 8 comprehensive analytics charts and automated insights.
+              </p>
+
+              <div className="space-y-4">
+                {[
+                  { icon: TrendingUp, text: 'Real-time demand vs committed tracking across all routes' },
+                  { icon: BarChart3, text: 'Visual gap heatmaps to identify coverage issues instantly' },
+                  { icon: Target, text: 'Vendor contribution analysis and concentration risk alerts' },
+                  { icon: Lightbulb, text: 'Smart insights that highlight top gaps and opportunities' },
+                  { icon: Calendar, text: 'Coverage analysis by planning horizon and lead time' },
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/20">
+                      <item.icon className="h-5 w-5 text-blue-400" />
+                    </div>
+                    <span className="text-slate-200">{item.text}</span>
+                  </div>
+                ))}
+              </div>
+
+              <Link
+                href="/register"
+                className="mt-8 inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-blue-600 px-8 font-semibold text-white transition-colors hover:bg-blue-700"
+              >
+                Explore Intelligence
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+
+            <div className="relative">
+              <div className="overflow-hidden rounded-2xl bg-slate-700/50 p-6 shadow-2xl backdrop-blur-sm">
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-white">Intelligence Dashboard</h3>
+                  <div className="flex gap-2">
+                    <div className="h-3 w-3 rounded-full bg-red-500"></div>
+                    <div className="h-3 w-3 rounded-full bg-yellow-500"></div>
+                    <div className="h-3 w-3 rounded-full bg-green-500"></div>
+                  </div>
+                </div>
+
+                {/* Mock Chart Preview */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded-lg bg-slate-800/50 p-4">
+                    <div className="mb-2 text-xs text-slate-400">Total Demand</div>
+                    <div className="text-2xl font-bold text-blue-400">1,247</div>
+                  </div>
+                  <div className="rounded-lg bg-slate-800/50 p-4">
+                    <div className="mb-2 text-xs text-slate-400">Total Committed</div>
+                    <div className="text-2xl font-bold text-green-400">1,178</div>
+                  </div>
+                  <div className="rounded-lg bg-slate-800/50 p-4">
+                    <div className="mb-2 text-xs text-slate-400">Gap</div>
+                    <div className="text-2xl font-bold text-red-400">69</div>
+                  </div>
+                  <div className="rounded-lg bg-slate-800/50 p-4">
+                    <div className="mb-2 text-xs text-slate-400">Avg Coverage</div>
+                    <div className="text-2xl font-bold text-white">94.5%</div>
+                  </div>
+                </div>
+
+                {/* Mock Chart Bars */}
+                <div className="mt-6 space-y-3">
+                  <div className="h-2 w-full rounded-full bg-slate-700">
+                    <div className="h-2 w-11/12 rounded-full bg-gradient-to-r from-blue-500 to-green-500"></div>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-slate-700">
+                    <div className="h-2 w-10/12 rounded-full bg-gradient-to-r from-blue-500 to-green-500"></div>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-slate-700">
+                    <div className="h-2 w-9/12 rounded-full bg-gradient-to-r from-blue-500 to-yellow-500"></div>
+                  </div>
+                </div>
+
+                {/* Insights Preview */}
+                <div className="mt-6 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                  <div className="flex items-start gap-2">
+                    <Lightbulb className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400" />
+                    <div>
+                      <div className="text-sm font-semibold text-amber-300">Key Insight</div>
+                      <div className="text-xs text-amber-200/80">Route RUH-JED has 45 trucks gap on Thursday. Consider increasing supplier commitments.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -213,20 +321,20 @@ export default function LandingPage() {
 
             <div>
               <h2 className="mb-6 text-4xl font-bold text-slate-900">
-                Coordinate Demand and Supply Seamlessly
+                Transform Your Planning with Intelligence
               </h2>
               <p className="mb-8 text-lg text-slate-600">
-                Built for transportation companies that need to balance client demand with supplier capacity every week.
+                Stop reacting to capacity issues. Start preventing them with real-time visibility, automated insights, and seamless supplier collaboration.
               </p>
 
               <div className="space-y-4">
                 {[
-                  'Centralize demand forecasts from all clients',
-                  'Track supplier commitments in one place',
-                  'Identify capacity gaps before they happen',
-                  'Coordinate between demand and supply planners',
-                  'Compare planned vs actual performance',
-                  'Make data-driven capacity decisions',
+                  'Visualize supply-demand gaps with 8 analytics charts',
+                  'Get automated insights on coverage risks and opportunities',
+                  'Share plans directly with suppliers for faster commitments',
+                  'Track vendor contribution and concentration risk',
+                  'Coordinate seamlessly between demand and supply teams',
+                  'Measure forecast accuracy and continuously improve',
                 ].map((benefit, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <div className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100">
@@ -281,15 +389,15 @@ export default function LandingPage() {
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
-                  <span>Weekly planning cycles</span>
+                  <span>Demand & supply planning</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
-                  <span>Basic demand forecasting</span>
+                  <span>Basic analytics dashboard</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
-                  <span>Supply tracking</span>
+                  <span>Route management</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
@@ -324,23 +432,23 @@ export default function LandingPage() {
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
-                  <span>Advanced analytics</span>
+                  <span><strong>Intelligence dashboard with 8 charts</strong></span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
-                  <span>Multi-route management</span>
+                  <span>Supplier collaboration portal</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
-                  <span>Actuals tracking</span>
+                  <span>Dispatch sheet & actuals tracking</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
-                  <span>Priority support</span>
+                  <span>Performance reports</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
-                  <span>API access</span>
+                  <span>Priority support & API access</span>
                 </li>
               </ul>
             </div>
@@ -367,23 +475,23 @@ export default function LandingPage() {
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
+                  <span>Full Intelligence suite</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
+                  <span>Custom integrations & workflows</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
                   <span>Dedicated account manager</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
-                  <span>Custom workflows</span>
+                  <span>24/7 priority support</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
-                  <span>Advanced security</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
-                  <span>24/7 support</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
-                  <span>SLA guarantees</span>
+                  <span>SLA guarantees & advanced security</span>
                 </li>
               </ul>
             </div>
@@ -395,18 +503,19 @@ export default function LandingPage() {
       <section className="bg-gradient-to-br from-blue-600 to-blue-700 py-20 text-white">
         <div className="container mx-auto px-6 text-center">
           <h2 className="mb-6 text-4xl font-bold">
-            Ready to Streamline Your Weekly Planning?
+            Ready to Plan with Intelligence?
           </h2>
           <p className="mb-8 text-lg text-blue-100">
-            Start coordinating demand and supply today. No credit card required.
+            Get instant visibility into your supply-demand balance. Start your free trial today.
           </p>
 
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
               href="/register"
-              className="inline-flex h-12 items-center justify-center rounded-lg bg-white px-8 font-semibold text-blue-600 transition-colors hover:bg-blue-50"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-white px-8 font-semibold text-blue-600 transition-colors hover:bg-blue-50"
             >
-              Get Started Free
+              Start Free Trial
+              <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               href="/login"
@@ -417,7 +526,7 @@ export default function LandingPage() {
           </div>
 
           <p className="mt-8 text-sm text-blue-200">
-            Join transportation companies balancing capacity and demand
+            No credit card required • 14-day free trial • Full Intelligence access
           </p>
         </div>
       </section>
@@ -504,7 +613,7 @@ export default function LandingPage() {
                 />
               </div>
               <p className="text-sm text-slate-400">
-                Weekly demand and supply planning for transportation companies.
+                Intelligence-powered supply and demand planning for transportation companies.
               </p>
             </div>
             <div>
