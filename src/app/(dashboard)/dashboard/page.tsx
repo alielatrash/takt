@@ -70,7 +70,7 @@ export default function DashboardPage() {
       {(canCreateDemand || canCreateSupply) && (
         <div className="flex gap-3 mb-6">
           {canCreateDemand && (
-            <Button asChild>
+            <Button asChild className="w-[200px]">
               <Link href="/demand">
                 <Plus className="h-4 w-4 mr-2" />
                 Create Demand Plan
@@ -78,7 +78,10 @@ export default function DashboardPage() {
             </Button>
           )}
           {canCreateSupply && (
-            <Button asChild variant={canCreateDemand ? "outline" : "default"}>
+            <Button
+              asChild
+              className="w-[200px] bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
               <Link href="/supply">
                 <Plus className="h-4 w-4 mr-2" />
                 Create Supply Plan
