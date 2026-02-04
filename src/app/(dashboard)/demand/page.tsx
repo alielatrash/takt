@@ -167,30 +167,43 @@ export default function DemandPlanningPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Demand Planning"
-        description={`Forecast ${periodLabel} demand by client and route`}
-      >
-        <WeekSelector value={selectedWeekId} onValueChange={handleWeekChange} />
-        {selectedIds.size > 0 && (
-          <Button variant="destructive" onClick={handleBulkDelete}>
-            <Trash2 className="h-4 w-4" />
-            Delete {selectedIds.size}
+    <div>
+      {/* Filters */}
+      {selectedWeekId && (
+        <div className="pt-0 pb-6">
+          <DemandFiltersComponent
+            planningWeekId={selectedWeekId}
+            filters={filters}
+            onFiltersChange={handleFiltersChange}
+          />
+        </div>
+      )}
+
+      <div className="mb-6">
+        <PageHeader
+          title="Demand Planning"
+          description={`Forecast ${periodLabel} demand by client and route`}
+        >
+          <WeekSelector value={selectedWeekId} onValueChange={handleWeekChange} />
+          {selectedIds.size > 0 && (
+            <Button variant="destructive" onClick={handleBulkDelete}>
+              <Trash2 className="h-4 w-4" />
+              Delete {selectedIds.size}
+            </Button>
+          )}
+          <Button variant="outline" onClick={handleDownload} disabled={!forecastsData?.data?.length}>
+            <Download className="h-4 w-4" />
+            Download
           </Button>
-        )}
-        <Button variant="outline" onClick={handleDownload} disabled={!forecastsData?.data?.length}>
-          <Download className="h-4 w-4" />
-          Download
-        </Button>
-        <Button onClick={handleAddForecast} disabled={!selectedWeekId}>
-          <Plus className="h-4 w-4" />
-          Add Forecast
-        </Button>
-      </PageHeader>
+          <Button onClick={handleAddForecast} disabled={!selectedWeekId}>
+            <Plus className="h-4 w-4" />
+            Add Forecast
+          </Button>
+        </PageHeader>
+      </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-6">
         <Card className="py-4">
           <CardContent className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
@@ -225,15 +238,6 @@ export default function DemandPlanningPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Filters */}
-      {selectedWeekId && (
-        <DemandFiltersComponent
-          planningWeekId={selectedWeekId}
-          filters={filters}
-          onFiltersChange={handleFiltersChange}
-        />
-      )}
 
       {/* Data Table */}
       <Card className="py-0">

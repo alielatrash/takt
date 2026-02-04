@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, Plus } from 'lucide-react'
+import { Loader2, Plus, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { format, addWeeks } from 'date-fns'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   Dialog,
   DialogContent,
@@ -58,6 +60,9 @@ interface SupplyFormDialogProps {
 export function SupplyFormDialog({ open, onOpenChange, planningWeekId, routeKey, targetData }: SupplyFormDialogProps) {
   const [isSupplierDialogOpen, setIsSupplierDialogOpen] = useState(false)
   const [supplierSearch, setSupplierSearch] = useState('')
+  const [currentWeekIndex, setCurrentWeekIndex] = useState(0)
+  const [weekCommitmentsData, setWeekCommitmentsData] = useState<Record<string, any>>({})
+  const [existingCommitments, setExistingCommitments] = useState<Set<string>>(new Set())
 
   // Fetch suppliers with server-side search
   const { data: suppliers } = useSuppliers({
@@ -71,6 +76,16 @@ export function SupplyFormDialog({ open, onOpenChange, planningWeekId, routeKey,
   const planningCycle = planningWeeksData?.meta?.planningCycle || 'WEEKLY'
   const isMonthlyPlanning = planningCycle === 'MONTHLY'
 
+  // Calculate available weeks for multi-week commitments (up to 4 weeks)
+  const availableWeeks = useMemo(() => {
+    if (!planningWeeksData?.data) return []
+    const currentWeekIdx = planningWeeksData.data.findIndex(w => w.id === planningWeekId)
+    if (currentWeekIdx === -1) return []
+    return planningWeeksData.data.slice(currentWeekIdx, currentWeekIdx + 4)
+  }, [planningWeeksData, planningWeekId])
+
+  const currentWeek = availableWeeks[currentWeekIndex]
+
   // Transform data for combobox (don't show UUID)
   const supplierOptions = useMemo(() =>
     suppliers?.data?.map((supplier) => ({
@@ -80,6 +95,74 @@ export function SupplyFormDialog({ open, onOpenChange, planningWeekId, routeKey,
     })) ?? [],
     [suppliers]
   )
+
+  // Save current week data before switching
+  const saveCurrentWeekData = () => {
+    if (!currentWeek) return
+    const formData = form.getValues()
+    setWeekCommitmentsData(prev => ({
+      ...prev,
+      [currentWeek.id]: {
+        supplierId: formData.supplierId,
+        day1Committed: formData.day1Committed,
+        day2Committed: formData.day2Committed,
+        day3Committed: formData.day3Committed,
+        day4Committed: formData.day4Committed,
+        day5Committed: formData.day5Committed,
+        day6Committed: formData.day6Committed,
+        day7Committed: formData.day7Committed,
+      }
+    }))
+  }
+
+  // Load week data when switching
+  const loadWeekData = (weekId: string) => {
+    const weekData = weekCommitmentsData[weekId]
+    if (weekData) {
+      form.reset({
+        planningWeekId: weekId,
+        supplierId: weekData.supplierId || '',
+        routeKey,
+        day1Committed: weekData.day1Committed || 0,
+        day2Committed: weekData.day2Committed || 0,
+        day3Committed: weekData.day3Committed || 0,
+        day4Committed: weekData.day4Committed || 0,
+        day5Committed: weekData.day5Committed || 0,
+        day6Committed: weekData.day6Committed || 0,
+        day7Committed: weekData.day7Committed || 0,
+        week1Committed: 0,
+        week2Committed: 0,
+        week3Committed: 0,
+        week4Committed: 0,
+      })
+    } else {
+      form.reset({
+        planningWeekId: weekId,
+        supplierId: '',
+        routeKey,
+        day1Committed: 0,
+        day2Committed: 0,
+        day3Committed: 0,
+        day4Committed: 0,
+        day5Committed: 0,
+        day6Committed: 0,
+        day7Committed: 0,
+        week1Committed: 0,
+        week2Committed: 0,
+        week3Committed: 0,
+        week4Committed: 0,
+      })
+    }
+  }
+
+  // Handle week change
+  const handleWeekChange = (newIndex: number) => {
+    saveCurrentWeekData()
+    setCurrentWeekIndex(newIndex)
+    if (availableWeeks[newIndex]) {
+      loadWeekData(availableWeeks[newIndex].id)
+    }
+  }
 
   const form = useForm<CreateSupplyCommitmentInput>({
     resolver: zodResolver(createSupplyCommitmentSchema),
@@ -103,6 +186,11 @@ export function SupplyFormDialog({ open, onOpenChange, planningWeekId, routeKey,
 
   useEffect(() => {
     if (open && planningWeekId && routeKey) {
+      // Reset to first week
+      setCurrentWeekIndex(0)
+      setWeekCommitmentsData({})
+      setExistingCommitments(new Set())
+
       form.reset({
         planningWeekId,
         supplierId: '',
@@ -148,9 +236,70 @@ export function SupplyFormDialog({ open, onOpenChange, planningWeekId, routeKey,
 
   const onSubmit = async (data: CreateSupplyCommitmentInput) => {
     try {
-      await createMutation.mutateAsync(data)
-      toast.success('Supply commitment added successfully')
+      // Save current week data first
+      saveCurrentWeekData()
+
+      // Combine all week data
+      const allWeekData = {
+        ...weekCommitmentsData,
+        [currentWeek.id]: {
+          supplierId: data.supplierId,
+          day1Committed: data.day1Committed,
+          day2Committed: data.day2Committed,
+          day3Committed: data.day3Committed,
+          day4Committed: data.day4Committed,
+          day5Committed: data.day5Committed,
+          day6Committed: data.day6Committed,
+          day7Committed: data.day7Committed,
+        }
+      }
+
+      // Filter weeks that have data (only check daily commitment fields)
+      const weeksToCreate = availableWeeks.filter(week => {
+        const weekData = allWeekData[week.id]
+        if (!weekData || !weekData.supplierId) return false
+
+        const hasData = Object.entries(weekData).some(([key, val]) => {
+          if (key === 'supplierId') return false
+          if (!key.startsWith('day')) return false
+          const numVal = typeof val === 'number' ? val : 0
+          return val !== undefined && val !== null && numVal > 0
+        })
+        return hasData
+      })
+
+      if (weeksToCreate.length === 0) {
+        toast.error('Please add commitment values for at least one week')
+        return
+      }
+
+      // Create commitments for all weeks with data
+      await Promise.all(
+        weeksToCreate.map(week => {
+          const weekData = allWeekData[week.id]
+          return createMutation.mutateAsync({
+            planningWeekId: week.id,
+            supplierId: weekData.supplierId,
+            routeKey,
+            day1Committed: weekData.day1Committed || 0,
+            day2Committed: weekData.day2Committed || 0,
+            day3Committed: weekData.day3Committed || 0,
+            day4Committed: weekData.day4Committed || 0,
+            day5Committed: weekData.day5Committed || 0,
+            day6Committed: weekData.day6Committed || 0,
+            day7Committed: weekData.day7Committed || 0,
+          })
+        })
+      )
+
+      toast.success(
+        weeksToCreate.length === 1
+          ? 'Supply commitment added successfully'
+          : `Supply commitments added for ${weeksToCreate.length} weeks`
+      )
       form.reset()
+      setWeekCommitmentsData({})
+      setCurrentWeekIndex(0)
       onOpenChange(false)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to add commitment')
@@ -163,11 +312,60 @@ export function SupplyFormDialog({ open, onOpenChange, planningWeekId, routeKey,
         <DialogHeader>
           <DialogTitle>Add Supply Commitment</DialogTitle>
           <DialogDescription>
-            Add supplier commitment for route: <strong>{formatCitym(routeKey)}</strong>
+            Add supplier commitments for multiple weeks using the same route and supplier
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {/* Week Tabs */}
+            {availableWeeks.length > 1 && (
+              <Tabs value={currentWeekIndex.toString()} onValueChange={(val) => handleWeekChange(parseInt(val))}>
+                <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${availableWeeks.length}, 1fr)` }}>
+                  {availableWeeks.map((week, index) => {
+                    const hasCommitment = weekCommitmentsData[week.id]?.supplierId &&
+                      Object.entries(weekCommitmentsData[week.id] || {}).some(([key, val]) => {
+                        if (key === 'supplierId') return false
+                        if (!key.startsWith('day')) return false
+                        const numVal = typeof val === 'number' ? val : 0
+                        return val !== undefined && val !== null && numVal > 0
+                      })
+
+                    return (
+                      <TabsTrigger key={week.id} value={index.toString()} className="relative">
+                        <div className="flex items-center gap-1.5">
+                          <span>Week {week.weekNumber}</span>
+                          {hasCommitment && (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                          )}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                          {format(new Date(week.weekStart), 'MMM d')}
+                        </div>
+                      </TabsTrigger>
+                    )
+                  })}
+                </TabsList>
+              </Tabs>
+            )}
+
+            {/* Current Week Info */}
+            {currentWeek && (
+              <div className="px-3 py-2 rounded-md bg-muted/50 text-sm">
+                <div className="flex items-baseline gap-2">
+                  <span className="font-medium">Route:</span>
+                  <span className="text-muted-foreground">{formatCitym(routeKey)}</span>
+                </div>
+                {availableWeeks.length > 1 && (
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className="font-medium">Week:</span>
+                    <span className="text-muted-foreground">
+                      {format(new Date(currentWeek.weekStart), 'MMM d')} - {format(addWeeks(new Date(currentWeek.weekStart), 1), 'MMM d, yyyy')}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <FormField
               control={form.control}
               name="supplierId"
@@ -203,7 +401,7 @@ export function SupplyFormDialog({ open, onOpenChange, planningWeekId, routeKey,
               )}
             />
 
-            {targetData && (
+            {targetData && currentWeekIndex === 0 && (
               <div className="space-y-3">
                 {/* Summary Bar */}
                 <div className="flex items-center gap-6 px-3 py-2 rounded-lg bg-muted/30 text-sm">
@@ -359,7 +557,7 @@ export function SupplyFormDialog({ open, onOpenChange, planningWeekId, routeKey,
               </div>
             )}
 
-            {!targetData && (
+            {(!targetData || currentWeekIndex > 0) && (
               <div>
                 <FormLabel className="text-sm mb-2 block">
                   {isMonthlyPlanning ? 'Weekly Commitment' : 'Daily Commitment'}

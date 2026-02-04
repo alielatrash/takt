@@ -106,16 +106,16 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
   const isMonthlyPlanning = planningCycle === 'MONTHLY'
   const isEditMode = !!forecast
 
-  // Get available weeks for multi-week creation (next 4 weeks from selected week)
+  // Get available weeks for multi-week creation/editing (next 4 weeks from selected week)
   const availableWeeks = useMemo(() => {
-    if (!planningWeeksData?.data || isEditMode) return []
+    if (!planningWeeksData?.data) return []
 
     const currentWeekIdx = planningWeeksData.data.findIndex(w => w.id === planningWeekId)
     if (currentWeekIdx === -1) return []
 
     // Get up to 4 weeks starting from the current week
     return planningWeeksData.data.slice(currentWeekIdx, currentWeekIdx + 4)
-  }, [planningWeeksData, planningWeekId, isEditMode])
+  }, [planningWeeksData, planningWeekId])
 
   const currentWeek = availableWeeks[currentWeekIndex]
 
@@ -368,47 +368,80 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
 
   const onSubmit = async (data: CreateDemandForecastInput) => {
     try {
-      if (isEditMode && forecast) {
-        // When editing, update the forecast with all selected truck types
-        await updateMutation.mutateAsync({
-          id: forecast.id,
-          clientId: data.clientId,
-          pickupCityId: data.pickupCityId,
-          dropoffCityId: data.dropoffCityId,
-          demandCategoryId: data.demandCategoryId,
-          truckTypeIds: data.truckTypeIds,
-          day1Loads: data.day1Loads,
-          day2Loads: data.day2Loads,
-          day3Loads: data.day3Loads,
-          day4Loads: data.day4Loads,
-          day5Loads: data.day5Loads,
-          day6Loads: data.day6Loads,
-          day7Loads: data.day7Loads,
-        })
-        toast.success('Demand forecast updated successfully')
-      } else {
-        // Save current week's data before submitting
-        saveCurrentWeekData()
+      // Save current week's data before submitting
+      saveCurrentWeekData()
 
-        // Collect all weeks that have data
-        const allWeekData = { ...weekLoadsData }
-        if (currentWeek) {
-          const formData = form.getValues()
-          allWeekData[currentWeek.id] = {
-            day1Loads: formData.day1Loads,
-            day2Loads: formData.day2Loads,
-            day3Loads: formData.day3Loads,
-            day4Loads: formData.day4Loads,
-            day5Loads: formData.day5Loads,
-            day6Loads: formData.day6Loads,
-            day7Loads: formData.day7Loads,
-            week1Loads: formData.week1Loads,
-            week2Loads: formData.week2Loads,
-            week3Loads: formData.week3Loads,
-            week4Loads: formData.week4Loads,
-          }
+      // Collect all weeks that have data
+      const allWeekData = { ...weekLoadsData }
+      if (currentWeek) {
+        const formData = form.getValues()
+        allWeekData[currentWeek.id] = {
+          day1Loads: formData.day1Loads,
+          day2Loads: formData.day2Loads,
+          day3Loads: formData.day3Loads,
+          day4Loads: formData.day4Loads,
+          day5Loads: formData.day5Loads,
+          day6Loads: formData.day6Loads,
+          day7Loads: formData.day7Loads,
+          week1Loads: formData.week1Loads,
+          week2Loads: formData.week2Loads,
+          week3Loads: formData.week3Loads,
+          week4Loads: formData.week4Loads,
+        }
+      }
+
+      if (isEditMode && forecast) {
+        // When editing, update the first week's forecast
+        const firstWeekData = allWeekData[availableWeeks[0]?.id]
+        if (firstWeekData) {
+          await updateMutation.mutateAsync({
+            id: forecast.id,
+            clientId: data.clientId,
+            pickupCityId: data.pickupCityId,
+            dropoffCityId: data.dropoffCityId,
+            demandCategoryId: data.demandCategoryId,
+            truckTypeIds: data.truckTypeIds,
+            day1Loads: firstWeekData.day1Loads,
+            day2Loads: firstWeekData.day2Loads,
+            day3Loads: firstWeekData.day3Loads,
+            day4Loads: firstWeekData.day4Loads,
+            day5Loads: firstWeekData.day5Loads,
+            day6Loads: firstWeekData.day6Loads,
+            day7Loads: firstWeekData.day7Loads,
+          })
         }
 
+        // Create forecasts for additional weeks (if any)
+        const additionalWeeks = availableWeeks.slice(1).filter(week => {
+          const weekData = allWeekData[week.id]
+          if (!weekData) return false
+          const hasData = Object.values(weekData).some(val => {
+            const numVal = typeof val === 'number' ? val : 0
+            return val !== undefined && val !== null && numVal > 0
+          })
+          return hasData
+        })
+
+        if (additionalWeeks.length > 0) {
+          await Promise.all(
+            additionalWeeks.map(week => {
+              const weekData = allWeekData[week.id]
+              return createMutation.mutateAsync({
+                ...data,
+                planningWeekId: week.id,
+                ...weekData,
+              })
+            })
+          )
+        }
+
+        const totalWeeks = 1 + additionalWeeks.length
+        toast.success(
+          additionalWeeks.length > 0
+            ? `Updated forecast and created ${additionalWeeks.length} additional forecast${additionalWeeks.length > 1 ? 's' : ''}`
+            : 'Demand forecast updated successfully'
+        )
+      } else {
         // Filter weeks that have at least one load value
         const weeksToCreate = availableWeeks.filter(week => {
           const weekData = allWeekData[week.id]
@@ -467,8 +500,8 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
           </DialogDescription>
         </DialogHeader>
 
-        {/* Week Tabs - Only show for new forecasts */}
-        {!isEditMode && availableWeeks.length > 1 && (
+        {/* Week Tabs - Show for multi-week forecasts */}
+        {availableWeeks.length > 1 && (
           <Tabs value={currentWeekIndex.toString()} onValueChange={(v) => handleWeekChange(parseInt(v))}>
             <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${availableWeeks.length}, 1fr)` }}>
               {availableWeeks.map((week, index) => (
