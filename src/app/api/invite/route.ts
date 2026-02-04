@@ -178,6 +178,7 @@ export async function POST(request: Request) {
           mobileNumber: mobileNumber || null,
           role: invitation.functionalRole,
           passwordHash,
+          emailVerified: true, // Email is verified since they clicked the invitation link
           isActive: true,
           currentOrgId: invitation.organizationId,
         },
