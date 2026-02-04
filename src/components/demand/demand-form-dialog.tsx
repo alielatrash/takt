@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, Plus } from 'lucide-react'
+import { Loader2, Plus, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,6 +14,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
 import {
   Form,
   FormControl,
@@ -80,6 +82,11 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
   const [truckTypeSearchQuery, setTruckTypeSearchQuery] = useState('')
   const [demandCategorySearchQuery, setDemandCategorySearchQuery] = useState('')
 
+  // Multi-week support
+  const [currentWeekIndex, setCurrentWeekIndex] = useState(0)
+  const [weekLoadsData, setWeekLoadsData] = useState<Record<string, any>>({})
+  const [existingForecasts, setExistingForecasts] = useState<Set<string>>(new Set())
+
   // Fetch organization settings to check if category is enabled
   const { data: orgSettings } = useOrganizationSettings()
   const isCategoryEnabled = orgSettings?.demandCategoryEnabled || false
@@ -98,6 +105,19 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
   const planningCycle = planningWeeksData?.meta?.planningCycle || 'WEEKLY'
   const isMonthlyPlanning = planningCycle === 'MONTHLY'
   const isEditMode = !!forecast
+
+  // Get available weeks for multi-week creation (next 4 weeks from selected week)
+  const availableWeeks = useMemo(() => {
+    if (!planningWeeksData?.data || isEditMode) return []
+
+    const currentWeekIdx = planningWeeksData.data.findIndex(w => w.id === planningWeekId)
+    if (currentWeekIdx === -1) return []
+
+    // Get up to 4 weeks starting from the current week
+    return planningWeeksData.data.slice(currentWeekIdx, currentWeekIdx + 4)
+  }, [planningWeeksData, planningWeekId, isEditMode])
+
+  const currentWeek = availableWeeks[currentWeekIndex]
 
   const form = useForm<CreateDemandForecastInput>({
     resolver: zodResolver(createDemandForecastSchema),
@@ -160,12 +180,13 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
 
   // Calculate week date ranges for monthly planning
   const weekDateRanges = useMemo(() => {
-    if (!isMonthlyPlanning || !planningWeeksData?.data) return []
+    if (!isMonthlyPlanning) return []
 
-    const selectedWeek = planningWeeksData.data.find(w => w.id === planningWeekId)
-    if (!selectedWeek) return []
+    // Use currentWeek for multi-week support, fallback to planningWeekId for edit mode
+    const weekToUse = currentWeek || planningWeeksData?.data?.find(w => w.id === planningWeekId)
+    if (!weekToUse) return []
 
-    const monthStart = new Date(selectedWeek.weekStart)
+    const monthStart = new Date(weekToUse.weekStart)
 
     return MONTH_WEEKS.map((_, index) => {
       const weekStartDate = addWeeks(monthStart, index)
@@ -177,16 +198,17 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
         end: format(weekEndDate, 'd')       // Just day number
       }
     })
-  }, [isMonthlyPlanning, planningWeeksData, planningWeekId])
+  }, [isMonthlyPlanning, planningWeeksData, planningWeekId, currentWeek])
 
   // Calculate day dates and check if past for weekly planning
   const dayInfo = useMemo(() => {
-    if (isMonthlyPlanning || !planningWeeksData?.data) return []
+    if (isMonthlyPlanning) return []
 
-    const selectedWeek = planningWeeksData.data.find(w => w.id === planningWeekId)
-    if (!selectedWeek) return []
+    // Use currentWeek for multi-week support, fallback to planningWeekId for edit mode
+    const weekToUse = currentWeek || planningWeeksData?.data?.find(w => w.id === planningWeekId)
+    if (!weekToUse) return []
 
-    const weekStart = startOfDay(new Date(selectedWeek.weekStart))
+    const weekStart = startOfDay(new Date(weekToUse.weekStart))
     const today = startOfDay(new Date())
 
     return WEEK_DAYS.map((_, index) => {
@@ -198,7 +220,103 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
         isPast,
       }
     })
-  }, [isMonthlyPlanning, planningWeeksData, planningWeekId])
+  }, [isMonthlyPlanning, planningWeeksData, planningWeekId, currentWeek])
+
+  // Save current week's load data before switching
+  const saveCurrentWeekData = () => {
+    if (!currentWeek) return
+
+    const formData = form.getValues()
+    setWeekLoadsData(prev => ({
+      ...prev,
+      [currentWeek.id]: {
+        day1Loads: formData.day1Loads,
+        day2Loads: formData.day2Loads,
+        day3Loads: formData.day3Loads,
+        day4Loads: formData.day4Loads,
+        day5Loads: formData.day5Loads,
+        day6Loads: formData.day6Loads,
+        day7Loads: formData.day7Loads,
+        week1Loads: formData.week1Loads,
+        week2Loads: formData.week2Loads,
+        week3Loads: formData.week3Loads,
+        week4Loads: formData.week4Loads,
+      }
+    }))
+  }
+
+  // Load week data when switching tabs
+  const loadWeekData = (weekId: string) => {
+    const savedData = weekLoadsData[weekId]
+    if (savedData) {
+      // Load saved data for this week
+      Object.keys(savedData).forEach(key => {
+        form.setValue(key as any, savedData[key])
+      })
+    } else {
+      // Clear load fields for new week
+      form.setValue('day1Loads', undefined)
+      form.setValue('day2Loads', undefined)
+      form.setValue('day3Loads', undefined)
+      form.setValue('day4Loads', undefined)
+      form.setValue('day5Loads', undefined)
+      form.setValue('day6Loads', undefined)
+      form.setValue('day7Loads', undefined)
+      form.setValue('week1Loads', undefined)
+      form.setValue('week2Loads', undefined)
+      form.setValue('week3Loads', undefined)
+      form.setValue('week4Loads', undefined)
+    }
+  }
+
+  // Handle week tab change
+  const handleWeekChange = (index: number) => {
+    saveCurrentWeekData()
+    setCurrentWeekIndex(index)
+    const newWeek = availableWeeks[index]
+    if (newWeek) {
+      loadWeekData(newWeek.id)
+    }
+  }
+
+  // Check for existing forecasts when route configuration changes
+  useEffect(() => {
+    const checkExistingForecasts = async () => {
+      const formData = form.getValues()
+      if (!formData.clientId || !formData.pickupCityId || !formData.dropoffCityId || availableWeeks.length === 0) {
+        setExistingForecasts(new Set())
+        return
+      }
+
+      try {
+        const weekIds = availableWeeks.map(w => w.id)
+        const checks = await Promise.all(
+          weekIds.map(async (weekId) => {
+            const params = new URLSearchParams({
+              planningWeekId: weekId,
+              clientId: formData.clientId,
+              pickupCityId: formData.pickupCityId,
+              dropoffCityId: formData.dropoffCityId,
+            })
+            if (formData.demandCategoryId) {
+              params.append('categoryIds', formData.demandCategoryId)
+            }
+
+            const res = await fetch(`/api/demand?${params.toString()}`)
+            const json = await res.json()
+            return { weekId, hasData: json.data?.length > 0 }
+          })
+        )
+
+        const existing = new Set(checks.filter(c => c.hasData).map(c => c.weekId))
+        setExistingForecasts(existing)
+      } catch (error) {
+        console.error('Failed to check existing forecasts:', error)
+      }
+    }
+
+    checkExistingForecasts()
+  }, [form.watch('clientId'), form.watch('pickupCityId'), form.watch('dropoffCityId'), form.watch('demandCategoryId'), availableWeeks])
 
   useEffect(() => {
     if (open && planningWeekId) {
@@ -242,6 +360,8 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
           week3Loads: undefined,
           week4Loads: undefined,
         })
+        setWeekLoadsData({})
+        setCurrentWeekIndex(0)
       }
     }
   }, [open, planningWeekId, forecast, form])
@@ -267,11 +387,63 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
         })
         toast.success('Demand forecast updated successfully')
       } else {
-        // Create a single forecast with all selected truck types
-        await createMutation.mutateAsync(data)
-        toast.success('Demand forecast created successfully')
+        // Save current week's data before submitting
+        saveCurrentWeekData()
+
+        // Collect all weeks that have data
+        const allWeekData = { ...weekLoadsData }
+        if (currentWeek) {
+          const formData = form.getValues()
+          allWeekData[currentWeek.id] = {
+            day1Loads: formData.day1Loads,
+            day2Loads: formData.day2Loads,
+            day3Loads: formData.day3Loads,
+            day4Loads: formData.day4Loads,
+            day5Loads: formData.day5Loads,
+            day6Loads: formData.day6Loads,
+            day7Loads: formData.day7Loads,
+            week1Loads: formData.week1Loads,
+            week2Loads: formData.week2Loads,
+            week3Loads: formData.week3Loads,
+            week4Loads: formData.week4Loads,
+          }
+        }
+
+        // Filter weeks that have at least one load value
+        const weeksToCreate = availableWeeks.filter(week => {
+          const weekData = allWeekData[week.id]
+          if (!weekData) return false
+
+          // Check if any load field has a value
+          const hasData = Object.values(weekData).some(val => val !== undefined && val !== null && val > 0)
+          return hasData
+        })
+
+        if (weeksToCreate.length === 0) {
+          toast.error('Please enter load values for at least one week')
+          return
+        }
+
+        // Create forecasts for all weeks with data
+        const createPromises = weeksToCreate.map(week => {
+          const weekData = allWeekData[week.id]
+          return createMutation.mutateAsync({
+            ...data,
+            planningWeekId: week.id,
+            ...weekData,
+          })
+        })
+
+        await Promise.all(createPromises)
+
+        const weekCount = weeksToCreate.length
+        toast.success(
+          `Successfully created ${weekCount} forecast${weekCount > 1 ? 's' : ''} for ${weekCount} week${weekCount > 1 ? 's' : ''}`
+        )
       }
       form.reset()
+      setWeekLoadsData({})
+      setCurrentWeekIndex(0)
       onOpenChange(false)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : `Failed to ${isEditMode ? 'update' : 'create'} forecast`)
@@ -282,13 +454,39 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditMode ? 'Edit Demand Forecast' : 'Add Demand Forecast'}</DialogTitle>
           <DialogDescription>
-            {isEditMode ? 'Update the demand forecast details' : 'Add a new demand forecast for a client and route'}
+            {isEditMode
+              ? 'Update the demand forecast details'
+              : 'Add demand forecasts for multiple weeks using the same route and client'}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Week Tabs - Only show for new forecasts */}
+        {!isEditMode && availableWeeks.length > 1 && (
+          <Tabs value={currentWeekIndex.toString()} onValueChange={(v) => handleWeekChange(parseInt(v))}>
+            <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${availableWeeks.length}, 1fr)` }}>
+              {availableWeeks.map((week, index) => (
+                <TabsTrigger key={week.id} value={index.toString()} className="relative">
+                  <div className="flex items-center gap-2">
+                    <span>
+                      {week.weekNumber ? `Week ${week.weekNumber}` : format(new Date(week.weekStart), 'MMM d')}
+                    </span>
+                    {existingForecasts.has(week.id) && (
+                      <CheckCircle2 className="h-3 w-3 text-green-600" />
+                    )}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {format(new Date(week.weekStart), 'MMM d')} - {format(new Date(week.weekEnd), 'MMM d')}
+                  </div>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        )}
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
