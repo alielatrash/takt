@@ -4,6 +4,14 @@ import { useState, useEffect } from 'react'
 import { Plus, ClipboardList, TruckIcon, MapPin, Download, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { PageHeader } from '@/components/layout'
 import { WeekSelector } from '@/components/demand/week-selector'
 import { DemandTable } from '@/components/demand/demand-table'
@@ -30,6 +38,7 @@ export default function DemandPlanningPage() {
   const [editingForecast, setEditingForecast] = useState<DemandForecastWithRelations | null>(null)
   const [page, setPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkDeleteDialog, setBulkDeleteDialog] = useState<{ open: boolean; count: number } | null>(null)
   const [filters, setFilters] = useState<DemandFilters>({
     plannerIds: [],
     clientIds: [],
@@ -56,17 +65,27 @@ export default function DemandPlanningPage() {
     setPage(1)
   }
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = () => {
     if (selectedIds.size === 0) return
-    if (!confirm(`Are you sure you want to delete ${selectedIds.size} forecast(s)?`)) return
+    setBulkDeleteDialog({ open: true, count: selectedIds.size })
+  }
+
+  const handleConfirmBulkDelete = async (deleteAll: boolean) => {
+    if (!bulkDeleteDialog) return
 
     try {
-      const deletePromises = Array.from(selectedIds).map(id => deleteMutation.mutateAsync({ id, deleteAll: false }))
+      const deletePromises = Array.from(selectedIds).map(id => deleteMutation.mutateAsync({ id, deleteAll }))
       await Promise.all(deletePromises)
-      toast.success(`${selectedIds.size} forecast(s) deleted successfully`)
+      if (deleteAll) {
+        toast.success(`${bulkDeleteDialog.count} forecast(s) deleted for all weeks`)
+      } else {
+        toast.success(`${bulkDeleteDialog.count} forecast(s) deleted`)
+      }
       setSelectedIds(new Set())
     } catch (error) {
       toast.error('Failed to delete some forecasts')
+    } finally {
+      setBulkDeleteDialog(null)
     }
   }
 
@@ -262,6 +281,34 @@ export default function DemandPlanningPage() {
           forecast={editingForecast}
         />
       )}
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={bulkDeleteDialog?.open || false} onOpenChange={(open) => !open && setBulkDeleteDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Demand Forecasts</DialogTitle>
+            <DialogDescription>
+              Delete <strong>{bulkDeleteDialog?.count}</strong> selected forecast(s)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Would you like to delete these forecasts for the current week only, or for all weeks in this planning cycle?
+            </p>
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setBulkDeleteDialog(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => handleConfirmBulkDelete(false)}>
+              Delete Current Week Only
+            </Button>
+            <Button variant="destructive" onClick={() => handleConfirmBulkDelete(true)}>
+              Delete All Weeks
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
