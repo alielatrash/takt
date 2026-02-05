@@ -15,6 +15,7 @@ export default function SupplyPlanningPage() {
   const [selectedWeekId, setSelectedWeekId] = useState<string>()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedCitym, setSelectedCitym] = useState<string>('')
+  const [editingSupplierId, setEditingSupplierId] = useState<string>('')
   const [filters, setFilters] = useState<SupplyFilters>({
     plannerIds: [],
     clientIds: [],
@@ -48,6 +49,13 @@ export default function SupplyPlanningPage() {
 
   const handleAddCommitment = (routeKey: string) => {
     setSelectedCitym(routeKey)
+    setEditingSupplierId('')
+    setIsDialogOpen(true)
+  }
+
+  const handleEditCommitment = (routeKey: string, supplierId: string, supplierName: string) => {
+    setSelectedCitym(routeKey)
+    setEditingSupplierId(supplierId)
     setIsDialogOpen(true)
   }
 
@@ -188,6 +196,7 @@ export default function SupplyPlanningPage() {
           data={targetsData?.data}
           isLoading={isLoading}
           onAddCommitment={handleAddCommitment}
+          onEditCommitment={handleEditCommitment}
           planningWeekId={selectedWeekId}
           weekStart={weeksData?.data?.find(w => w.id === selectedWeekId)?.weekStart}
         />
@@ -204,6 +213,7 @@ export default function SupplyPlanningPage() {
           planningWeekId={selectedWeekId}
           routeKey={selectedCitym}
           targetData={targetsData?.data?.find(t => t.routeKey === selectedCitym)}
+          editingSupplierId={editingSupplierId}
         />
       )}
     </div>

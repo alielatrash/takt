@@ -9,6 +9,7 @@ interface SupplyTarget {
   committed: { day1: number; day2: number; day3: number; day4: number; day5: number; day6: number; day7: number; week1: number; week2: number; week3: number; week4: number; total: number }
   gap: { day1: number; day2: number; day3: number; day4: number; day5: number; day6: number; day7: number; week1: number; week2: number; week3: number; week4: number; total: number }
   gapPercent: number
+  capacityPercent: number
   truckTypes: Array<{ id: string; name: string }>
   clients: Array<{
     client: { id: string; name: string; code: string | null }

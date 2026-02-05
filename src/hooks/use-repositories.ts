@@ -119,7 +119,7 @@ export function useSuppliers(params: SearchParams = {}, enabled: boolean = true)
 export function useCreateSupplier() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (data: { name: string; code?: string; pointOfContact?: string; phoneNumber?: string }) => {
+    mutationFn: async (data: { name: string; code?: string; pointOfContact?: string; phoneNumber?: string; capacity?: number; capacityType?: string }) => {
       const response = await fetch('/api/suppliers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -139,7 +139,7 @@ export function useCreateSupplier() {
 export function useUpdateSupplier() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...data }: { id: string; name?: string; code?: string; pointOfContact?: string; phoneNumber?: string }) => {
+    mutationFn: async ({ id, ...data }: { id: string; name?: string; code?: string; pointOfContact?: string; phoneNumber?: string; capacity?: number; capacityType?: string }) => {
       const response = await fetch(`/api/suppliers/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },

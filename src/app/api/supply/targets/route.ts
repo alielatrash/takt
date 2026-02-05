@@ -182,6 +182,14 @@ export async function GET(request: Request) {
         total: target.total - totalCommitments.total,
       }
 
+      // Calculate capacity percentage (committed / target * 100)
+      // If > 100%, capacity is over-filled (positive)
+      // If < 100%, capacity is under-filled (negative)
+      const capacityPercent = target.total > 0
+        ? Math.round((totalCommitments.total / target.total) * 100)
+        : 0
+
+      // Keep gapPercent for backward compatibility but calculate it properly
       const gapPercent = target.total > 0
         ? Math.round((gap.total / target.total) * 100)
         : 0
@@ -212,6 +220,7 @@ export async function GET(request: Request) {
         committed: totalCommitments,
         gap,
         gapPercent,
+        capacityPercent,
         truckTypes: routeTruckTypes,
         clients: clientBreakdown,
         commitments: routeCommitments.map((c) => ({
@@ -229,8 +238,8 @@ export async function GET(request: Request) {
       }
     })
 
-    // Sort by gap (highest gap first)
-    targets.sort((a, b) => b.gap.total - a.gap.total)
+    // Sort by volume (highest target volume first)
+    targets.sort((a, b) => b.target.total - a.target.total)
 
     return NextResponse.json({
       success: true,

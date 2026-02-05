@@ -92,7 +92,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       )
     }
 
-    const { name, pointOfContact, phoneNumber } = validationResult.data
+    const { name, pointOfContact, phoneNumber, capacity, capacityType } = validationResult.data
 
     // Check for duplicates within organization (excluding current record)
     if (name) {
@@ -121,6 +121,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         ...(name !== undefined && { name }),
         ...(pointOfContact !== undefined && { pointOfContact }),
         ...(phoneNumber !== undefined && { phoneNumber }),
+        ...(capacity !== undefined && { capacity }),
+        ...(capacityType !== undefined && { capacityType }),
       },
     })
 

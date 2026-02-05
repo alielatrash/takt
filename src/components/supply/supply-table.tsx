@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useMemo } from 'react'
-import { ChevronDown, ChevronRight, Plus, Trash2, Check, X, Send } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Trash2, Check, X, Send, Edit2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { format, addWeeks } from 'date-fns'
 import { Button } from '@/components/ui/button'
@@ -36,6 +36,7 @@ interface SupplyTarget {
   committed: { day1: number; day2: number; day3: number; day4: number; day5: number; day6: number; day7: number; week1: number; week2: number; week3: number; week4: number; total: number }
   gap: { day1: number; day2: number; day3: number; day4: number; day5: number; day6: number; day7: number; week1: number; week2: number; week3: number; week4: number; total: number }
   gapPercent: number
+  capacityPercent: number
   truckTypes?: Array<{ id: string; name: string }>
   clients: Array<{
     client: { id: string; name: string; code: string | null }
@@ -66,11 +67,12 @@ interface SupplyTableProps {
   data: SupplyTarget[] | undefined
   isLoading: boolean
   onAddCommitment: (routeKey: string) => void
+  onEditCommitment?: (routeKey: string, supplierId: string, supplierName: string) => void
   planningWeekId?: string
   weekStart?: Date | string
 }
 
-export function SupplyTable({ data, isLoading, onAddCommitment, planningWeekId, weekStart }: SupplyTableProps) {
+export function SupplyTable({ data, isLoading, onAddCommitment, onEditCommitment, planningWeekId, weekStart }: SupplyTableProps) {
   const { data: planningWeeksData } = usePlanningWeeks()
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const [editingCell, setEditingCell] = useState<{ id: string; day: string } | null>(null)
@@ -80,6 +82,69 @@ export function SupplyTable({ data, isLoading, onAddCommitment, planningWeekId, 
 
   const planningCycle = planningWeeksData?.meta?.planningCycle || 'WEEKLY'
   const isMonthlyPlanning = planningCycle === 'MONTHLY'
+
+  // Track collapsed city groups
+  const [collapsedCities, setCollapsedCities] = useState<Set<string>>(new Set())
+
+  const toggleCity = (cityName: string) => {
+    const newCollapsed = new Set(collapsedCities)
+    if (newCollapsed.has(cityName)) {
+      newCollapsed.delete(cityName)
+    } else {
+      newCollapsed.add(cityName)
+    }
+    setCollapsedCities(newCollapsed)
+  }
+
+  // Group data by origin city
+  const groupedData = useMemo(() => {
+    if (!data) return []
+
+    const groups = data.reduce((acc, target) => {
+      // Extract origin city from routeKey (format: "CITY1->CITY2")
+      const originCity = target.routeKey.split('->')[0] || 'Unknown'
+
+      if (!acc[originCity]) {
+        acc[originCity] = []
+      }
+      acc[originCity].push(target)
+      return acc
+    }, {} as Record<string, SupplyTarget[]>)
+
+    // Convert to array and sort by city name
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b))
+  }, [data])
+
+  // Calculate totals for each day across all routes
+  const overallDailyTotals = useMemo(() => {
+    if (!data) {
+      return {
+        target: { day1: 0, day2: 0, day3: 0, day4: 0, day5: 0, day6: 0, day7: 0, total: 0 },
+        committed: { day1: 0, day2: 0, day3: 0, day4: 0, day5: 0, day6: 0, day7: 0, total: 0 },
+        gap: { day1: 0, day2: 0, day3: 0, day4: 0, day5: 0, day6: 0, day7: 0, total: 0 },
+      }
+    }
+
+    const totals = {
+      target: { day1: 0, day2: 0, day3: 0, day4: 0, day5: 0, day6: 0, day7: 0, total: 0 },
+      committed: { day1: 0, day2: 0, day3: 0, day4: 0, day5: 0, day6: 0, day7: 0, total: 0 },
+      gap: { day1: 0, day2: 0, day3: 0, day4: 0, day5: 0, day6: 0, day7: 0, total: 0 },
+    }
+
+    data.forEach((target) => {
+      WEEK_DAYS.forEach((_, index) => {
+        const key = `day${index + 1}` as 'day1' | 'day2' | 'day3' | 'day4' | 'day5' | 'day6' | 'day7'
+        totals.target[key] += target.target[key]
+        totals.committed[key] += target.committed[key]
+        totals.gap[key] += target.gap[key]
+      })
+      totals.target.total += target.target.total
+      totals.committed.total += target.committed.total
+      totals.gap.total += target.gap.total
+    })
+
+    return totals
+  }, [data])
 
   // Calculate week date ranges for monthly planning
   const weekDateRanges = useMemo(() => {
@@ -287,7 +352,102 @@ export function SupplyTable({ data, isLoading, onAddCommitment, planningWeekId, 
           </TableRow>
         </TableHeader>
         <TableBody>
-          {data.flatMap((target, targetIndex) => {
+          {/* Total Forecast Row */}
+          <TableRow className="bg-slate-100 border-b-2 border-slate-200 font-bold">
+            <TableCell></TableCell>
+            <TableCell className="sticky left-0 bg-slate-100 text-sm uppercase tracking-wide text-slate-700">
+              Total Forecast
+            </TableCell>
+            <TableCell></TableCell>
+            <TableCell></TableCell>
+            <TableCell></TableCell>
+            <TableCell className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Target</TableCell>
+            {WEEK_DAYS.map((day, index) => {
+              const key = `day${index + 1}` as 'day1' | 'day2' | 'day3' | 'day4' | 'day5' | 'day6' | 'day7'
+              return (
+                <TableCell key={day.key} className="text-center font-bold text-blue-600">
+                  {overallDailyTotals.target[key]}
+                </TableCell>
+              )
+            })}
+            <TableCell className="text-center font-bold text-blue-600">{overallDailyTotals.target.total}</TableCell>
+            <TableCell></TableCell>
+          </TableRow>
+
+          {groupedData.flatMap(([originCity, cityTargets]) => {
+            // Calculate totals for this city group
+            const cityTotals = {
+              target: { day1: 0, day2: 0, day3: 0, day4: 0, day5: 0, day6: 0, day7: 0, total: 0 },
+              committed: { day1: 0, day2: 0, day3: 0, day4: 0, day5: 0, day6: 0, day7: 0, total: 0 },
+              gap: { day1: 0, day2: 0, day3: 0, day4: 0, day5: 0, day6: 0, day7: 0, total: 0 },
+            }
+
+            cityTargets.forEach((target) => {
+              WEEK_DAYS.forEach((_, index) => {
+                const key = `day${index + 1}` as 'day1' | 'day2' | 'day3' | 'day4' | 'day5' | 'day6' | 'day7'
+                cityTotals.target[key] += target.target[key]
+                cityTotals.committed[key] += target.committed[key]
+                cityTotals.gap[key] += target.gap[key]
+              })
+              cityTotals.target.total += target.target.total
+              cityTotals.committed.total += target.committed.total
+              cityTotals.gap.total += target.gap.total
+            })
+
+            const cityRows: React.ReactElement[] = []
+
+            const isCityCollapsed = collapsedCities.has(originCity)
+
+            // Add city header row with daily totals
+            cityRows.push(
+              <TableRow key={`city-header-${originCity}`} className="bg-muted/50 border-t-2 border-border hover:bg-muted/60 cursor-pointer" onClick={() => toggleCity(originCity)}>
+                <TableCell className="py-2 px-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                  >
+                    {isCityCollapsed ? (
+                      <ChevronRight className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TableCell>
+                <TableCell className="sticky left-0 bg-muted/50 py-2 px-4">
+                  <span className="text-sm font-bold text-foreground uppercase tracking-wide">
+                    {originCity}
+                  </span>
+                  <span className="text-xs text-muted-foreground ml-2">
+                    ({cityTargets.length} route{cityTargets.length !== 1 ? 's' : ''})
+                  </span>
+                </TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+                {WEEK_DAYS.map((day, index) => {
+                  const key = `day${index + 1}` as 'day1' | 'day2' | 'day3' | 'day4' | 'day5' | 'day6' | 'day7'
+                  return (
+                    <TableCell key={day.key} className="text-center text-xs font-semibold text-muted-foreground">
+                      {cityTotals.target[key]}
+                    </TableCell>
+                  )
+                })}
+                <TableCell className="text-center text-xs font-semibold text-muted-foreground">
+                  {cityTotals.target.total}
+                </TableCell>
+                <TableCell></TableCell>
+              </TableRow>
+            )
+
+            // Skip rendering routes if city is collapsed
+            if (isCityCollapsed) {
+              return cityRows
+            }
+
+            // Add routes for this city
+            cityTargets.forEach((target, targetIndex) => {
             const isExpanded = expandedRows.has(target.routeKey)
             const baseRowIndex = targetIndex * 3
 
@@ -329,21 +489,20 @@ export function SupplyTable({ data, isLoading, onAddCommitment, planningWeekId, 
                 <TableCell className="text-center">
                   <span className={cn(
                     "inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap min-w-[130px]",
-                    target.gapPercent <= 0 && "bg-emerald-100 text-emerald-600",
-                    target.gapPercent > 0 && "bg-red-100 text-red-600"
+                    target.capacityPercent >= 100 && "bg-emerald-100 text-emerald-600",
+                    target.capacityPercent < 100 && "bg-red-100 text-red-600"
                   )}>
-                    {target.gapPercent <= 0 && "CAPACITY FILLED"}
-                    {target.gapPercent > 0 && "FILL RISK"}
+                    {target.capacityPercent >= 100 && "CAPACITY FILLED"}
+                    {target.capacityPercent < 100 && "FILL RISK"}
                   </span>
                 </TableCell>
                 <TableCell className="text-center">
                   <span className={cn(
                     "text-sm font-semibold",
-                    target.gapPercent > 0 && "text-red-600",
-                    target.gapPercent < 0 && "text-emerald-600",
-                    target.gapPercent === 0 && "text-muted-foreground"
+                    target.capacityPercent >= 100 && "text-emerald-600",
+                    target.capacityPercent < 100 && "text-red-600"
                   )}>
-                    {target.gapPercent}%
+                    {target.capacityPercent >= 100 ? '+' : '-'}{Math.abs(target.capacityPercent - 100)}%
                   </span>
                 </TableCell>
                 <TableCell className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Target</TableCell>
@@ -411,27 +570,31 @@ export function SupplyTable({ data, isLoading, onAddCommitment, planningWeekId, 
                 {WEEK_DAYS.map((day, index) => {
                   const key = `day${index + 1}` as keyof typeof target.gap
                   const value = target.gap[key]
+                  // Invert display: negative gap (oversupply) shows as positive green, positive gap (undersupply) shows as red
+                  const displayValue = -value
                   return (
                     <TableCell
                       key={day.key}
                       className={cn(
                         'text-center font-medium',
-                        value !== 0 && 'text-red-600 dark:text-red-400',
-                        value === 0 && 'text-muted-foreground'
+                        displayValue > 0 && 'text-emerald-600 dark:text-emerald-500',
+                        displayValue < 0 && 'text-red-600 dark:text-red-400',
+                        displayValue === 0 && 'text-muted-foreground'
                       )}
                     >
-                      {value}
+                      {displayValue > 0 ? '+' : ''}{displayValue}
                     </TableCell>
                   )
                 })}
                 <TableCell
                   className={cn(
                     'text-center bg-muted/30 font-semibold',
-                    target.gap.total !== 0 && 'text-red-600 dark:text-red-400',
+                    -target.gap.total > 0 && 'text-emerald-600 dark:text-emerald-500',
+                    -target.gap.total < 0 && 'text-red-600 dark:text-red-400',
                     target.gap.total === 0 && 'text-muted-foreground'
                   )}
                 >
-                  {target.gap.total}
+                  {-target.gap.total > 0 ? '+' : ''}{-target.gap.total}
                 </TableCell>
                 <TableCell></TableCell>
               </TableRow>
@@ -576,6 +739,17 @@ export function SupplyTable({ data, isLoading, onAddCommitment, planningWeekId, 
                         >
                           <Send className="h-3.5 w-3.5" />
                         </Button>
+                        {onEditCommitment && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-blue-600 hover:bg-blue-50"
+                            onClick={() => onEditCommitment(target.routeKey, commitment.party.id, commitment.party.name)}
+                            title="Edit commitment"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -591,8 +765,90 @@ export function SupplyTable({ data, isLoading, onAddCommitment, planningWeekId, 
               })
             }
 
-            return rows
-          })}
+            cityRows.push(...rows)
+          })
+
+          // Add city totals row
+          cityRows.push(
+            <TableRow key={`city-total-${originCity}-target`} className="bg-blue-50 hover:bg-blue-50 border-t border-border font-semibold">
+              <TableCell></TableCell>
+              <TableCell className="sticky left-0 bg-blue-50 text-sm uppercase text-blue-900">
+                {originCity} Total
+              </TableCell>
+              <TableCell></TableCell>
+              <TableCell></TableCell>
+              <TableCell></TableCell>
+              <TableCell className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Target</TableCell>
+              {WEEK_DAYS.map((day, index) => {
+                const key = `day${index + 1}` as keyof typeof cityTotals.target
+                return (
+                  <TableCell key={day.key} className="text-center font-bold text-sm text-blue-600">
+                    {cityTotals.target[key]}
+                  </TableCell>
+                )
+              })}
+              <TableCell className="text-center font-bold text-blue-600">{cityTotals.target.total}</TableCell>
+              <TableCell></TableCell>
+            </TableRow>,
+            <TableRow key={`city-total-${originCity}-committed`} className="bg-blue-50 hover:bg-blue-50">
+              <TableCell></TableCell>
+              <TableCell className="sticky left-0 bg-blue-50"></TableCell>
+              <TableCell></TableCell>
+              <TableCell></TableCell>
+              <TableCell></TableCell>
+              <TableCell className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Committed</TableCell>
+              {WEEK_DAYS.map((day, index) => {
+                const key = `day${index + 1}` as keyof typeof cityTotals.committed
+                return (
+                  <TableCell key={day.key} className="text-center font-bold text-sm text-emerald-700">
+                    {cityTotals.committed[key]}
+                  </TableCell>
+                )
+              })}
+              <TableCell className="text-center font-bold text-emerald-700">{cityTotals.committed.total}</TableCell>
+              <TableCell></TableCell>
+            </TableRow>,
+            <TableRow key={`city-total-${originCity}-gap`} className="bg-blue-50 hover:bg-blue-50 border-b-2 border-border">
+              <TableCell></TableCell>
+              <TableCell className="sticky left-0 bg-blue-50"></TableCell>
+              <TableCell></TableCell>
+              <TableCell></TableCell>
+              <TableCell></TableCell>
+              <TableCell className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Gap</TableCell>
+              {WEEK_DAYS.map((day, index) => {
+                const key = `day${index + 1}` as keyof typeof cityTotals.gap
+                const value = cityTotals.gap[key]
+                const displayValue = -value
+                return (
+                  <TableCell
+                    key={day.key}
+                    className={cn(
+                      'text-center font-bold text-sm',
+                      displayValue > 0 && 'text-emerald-600',
+                      displayValue < 0 && 'text-red-600',
+                      displayValue === 0 && 'text-muted-foreground'
+                    )}
+                  >
+                    {displayValue > 0 ? '+' : ''}{displayValue}
+                  </TableCell>
+                )
+              })}
+              <TableCell
+                className={cn(
+                  'text-center font-bold',
+                  -cityTotals.gap.total > 0 && 'text-emerald-600',
+                  -cityTotals.gap.total < 0 && 'text-red-600',
+                  cityTotals.gap.total === 0 && 'text-muted-foreground'
+                )}
+              >
+                {-cityTotals.gap.total > 0 ? '+' : ''}{-cityTotals.gap.total}
+              </TableCell>
+              <TableCell></TableCell>
+            </TableRow>
+          )
+
+          return cityRows
+        })}
         </TableBody>
       </Table>
     </div>

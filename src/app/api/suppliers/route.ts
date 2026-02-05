@@ -91,7 +91,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { name, pointOfContact, phoneNumber } = validationResult.data
+    const { name, pointOfContact, phoneNumber, capacity, capacityType } = validationResult.data
 
     // Check for duplicates within organization
     const existing = await prisma.party.findFirst({
@@ -120,6 +120,8 @@ export async function POST(request: Request) {
         uniqueIdentifier,
         pointOfContact,
         phoneNumber,
+        capacity,
+        capacityType,
         partyRole: PartyRole.SUPPLIER,
         isActive: true,
       }),

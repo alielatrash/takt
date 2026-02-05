@@ -24,6 +24,13 @@ import {
   FormDescription,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { usePhoneValidation } from '@/hooks/use-phone-validation'
 
 interface FormFieldConfig {
@@ -31,7 +38,9 @@ interface FormFieldConfig {
   label: string
   placeholder?: string
   required?: boolean
-  type?: 'text' | 'phone' | 'number'
+  type?: 'text' | 'phone' | 'number' | 'select'
+  options?: Array<{ value: string; label: string }>
+  isLoadingOptions?: boolean
 }
 
 interface EntityFormDialogProps<T extends FieldValues> {
@@ -96,6 +105,7 @@ export function EntityFormDialog<T extends FieldValues>({
             {fields.map((field) => {
               const isPhoneField = field.type === 'phone' || field.name === 'phoneNumber'
               const isNumberField = field.type === 'number'
+              const isSelectField = field.type === 'select'
               const placeholder = isPhoneField ? phoneConfig.placeholder : field.placeholder
 
               return (
@@ -110,12 +120,31 @@ export function EntityFormDialog<T extends FieldValues>({
                         {field.required && <span className="text-destructive ml-1">*</span>}
                       </FormLabel>
                       <FormControl>
-                        <Input
-                          type={isNumberField ? 'number' : 'text'}
-                          placeholder={placeholder}
-                          {...formField}
-                          value={formField.value as string || ''}
-                        />
+                        {isSelectField ? (
+                          <Select
+                            onValueChange={formField.onChange}
+                            value={formField.value as string || ''}
+                            disabled={field.isLoadingOptions}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={placeholder || 'Select an option'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {field.options?.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            type={isNumberField ? 'number' : 'text'}
+                            placeholder={placeholder}
+                            {...formField}
+                            value={formField.value as string || ''}
+                          />
+                        )}
                       </FormControl>
                       {isPhoneField && (
                         <FormDescription className="text-xs">

@@ -16,8 +16,9 @@ import {
   useCreateSupplier,
   useUpdateSupplier,
   useDeleteSupplier,
+  useTruckTypes,
 } from '@/hooks/use-repositories'
-import { createSupplierSchema } from '@/lib/validations/repositories'
+import { createSupplierSchema, type CreateSupplierInput } from '@/lib/validations/repositories'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useAuth } from '@/hooks/use-auth'
 
@@ -28,14 +29,6 @@ const columns = [
   { key: 'phoneNumber', label: 'Phone Number' },
   { key: 'capacity', label: 'Capacity' },
   { key: 'capacityType', label: 'Capacity Type' },
-]
-
-const formFields = [
-  { name: 'name', label: 'Name', placeholder: 'Enter supplier name (e.g., WLS, MOMENTUM)', required: true },
-  { name: 'pointOfContact', label: 'Point of Contact', placeholder: 'Enter contact person name (optional)' },
-  { name: 'phoneNumber', label: 'Phone Number', placeholder: 'Enter contact phone (optional)', type: 'phone' as const },
-  { name: 'capacity', label: 'Capacity', type: 'number' as const, placeholder: 'Enter total capacity (e.g., 100 trucks)' },
-  { name: 'capacityType', label: 'Capacity Type', placeholder: 'Enter capacity type (e.g., Curtainside Truck, Flatbed)' },
 ]
 
 const defaultValues = { name: '', pointOfContact: '', phoneNumber: '', capacity: '', capacityType: '' }
@@ -64,9 +57,24 @@ export default function SuppliersPage() {
     page: currentPage,
     pageSize: 50
   })
+  const { data: truckTypesData, isLoading: isLoadingTruckTypes } = useTruckTypes({ pageSize: 1000 })
   const createMutation = useCreateSupplier()
   const updateMutation = useUpdateSupplier()
   const deleteMutation = useDeleteSupplier()
+
+  // Convert truck types to select options
+  const truckTypeOptions = truckTypesData?.data?.map((truckType) => ({
+    value: truckType.name,
+    label: truckType.name,
+  })) || []
+
+  const formFields = [
+    { name: 'name', label: 'Name', placeholder: 'Enter supplier name (e.g., WLS, MOMENTUM)', required: true },
+    { name: 'pointOfContact', label: 'Point of Contact', placeholder: 'Enter contact person name (optional)' },
+    { name: 'phoneNumber', label: 'Phone Number', placeholder: 'Enter contact phone (optional)', type: 'phone' as const },
+    { name: 'capacity', label: 'Capacity', type: 'number' as const, placeholder: 'Enter total capacity (e.g., 100 trucks)' },
+    { name: 'capacityType', label: 'Capacity Type', type: 'select' as const, placeholder: 'Select truck type', options: truckTypeOptions, isLoadingOptions: isLoadingTruckTypes },
+  ]
 
   const handleAdd = useCallback(() => {
     setEditingItem(null)
@@ -261,7 +269,7 @@ export default function SuppliersPage() {
     setCurrentPage(page)
   }, [])
 
-  const handleSubmit = async (formData: { name: string; pointOfContact?: string; phoneNumber?: string }) => {
+  const handleSubmit = async (formData: CreateSupplierInput) => {
     try {
       if (editingItem) {
         await updateMutation.mutateAsync({ id: editingItem.id, ...formData })
@@ -334,11 +342,13 @@ export default function SuppliersPage() {
         description={editingItem ? 'Update supplier details. Note: ID is auto-generated and cannot be changed.' : 'Add a new fleet partner supplier. A unique ID will be generated automatically.'}
         schema={createSupplierSchema}
         fields={formFields}
-        defaultValues={editingItem ? {
+        defaultValues={(editingItem ? {
           name: editingItem.name,
           pointOfContact: editingItem.pointOfContact || '',
-          phoneNumber: editingItem.phoneNumber || ''
-        } : defaultValues}
+          phoneNumber: editingItem.phoneNumber || '',
+          capacity: editingItem.capacity?.toString() || '',
+          capacityType: editingItem.capacityType || ''
+        } : defaultValues) as any}
         onSubmit={handleSubmit}
         isLoading={createMutation.isPending || updateMutation.isPending}
         isEdit={!!editingItem}
