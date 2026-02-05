@@ -34,6 +34,10 @@ export default function SupplyPlanningPage() {
   const { data: weeksData } = usePlanningWeeks()
   const { data: targetsData, isLoading } = useSupplyTargets(selectedWeekId, filters)
 
+  // Get current week start date as string
+  const currentWeekStart = weeksData?.data?.find(w => w.id === selectedWeekId)?.weekStart
+  const weekStartString = currentWeekStart ? new Date(currentWeekStart).toISOString() : undefined
+
   // Auto-select first (current) week
   useEffect(() => {
     if (weeksData?.data?.length && !selectedWeekId) {
@@ -223,7 +227,7 @@ export default function SupplyPlanningPage() {
               onAddCommitment={handleAddCommitment}
               onEditCommitment={handleEditCommitment}
               planningWeekId={selectedWeekId}
-              weekStart={weeksData?.data?.find(w => w.id === selectedWeekId)?.weekStart}
+              weekStart={weekStartString}
             />
           )}
           {viewMode === 'compact' && (
@@ -233,7 +237,7 @@ export default function SupplyPlanningPage() {
               onAddCommitment={handleAddCommitment}
               onEditCommitment={handleEditCommitment}
               planningWeekId={selectedWeekId}
-              weekStart={weeksData?.data?.find(w => w.id === selectedWeekId)?.weekStart}
+              weekStart={weekStartString}
             />
           )}
           {viewMode === 'heatmap' && (
@@ -243,7 +247,7 @@ export default function SupplyPlanningPage() {
               onAddCommitment={handleAddCommitment}
               onEditCommitment={handleEditCommitment}
               planningWeekId={selectedWeekId}
-              weekStart={weeksData?.data?.find(w => w.id === selectedWeekId)?.weekStart}
+              weekStart={weekStartString}
             />
           )}
         </>
