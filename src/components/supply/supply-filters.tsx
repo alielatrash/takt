@@ -3,7 +3,7 @@
 import { Filter, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MultiSelectCombobox, type MultiSelectOption } from '@/components/ui/multi-select-combobox'
-import { useClients, useTruckTypes, useDemandCategories } from '@/hooks/use-repositories'
+import { useClients, useCities, useTruckTypes, useDemandCategories } from '@/hooks/use-repositories'
 import { useOrganizationSettings } from '@/hooks/use-organization'
 import { Card, CardContent } from '@/components/ui/card'
 import { useQuery } from '@tanstack/react-query'
@@ -13,6 +13,7 @@ export interface SupplyFilters {
   clientIds: string[]
   categoryIds: string[]
   truckTypeIds: string[]
+  cityIds: string[]
 }
 
 interface SupplyFiltersProps {
@@ -23,6 +24,7 @@ interface SupplyFiltersProps {
 
 export function SupplyFiltersComponent({ planningWeekId, filters, onFiltersChange }: SupplyFiltersProps) {
   const { data: clients } = useClients()
+  const { data: cities } = useCities()
   const { data: truckTypes } = useTruckTypes()
   const { data: categories } = useDemandCategories()
   const { data: orgSettings } = useOrganizationSettings()
@@ -53,6 +55,11 @@ export function SupplyFiltersComponent({ planningWeekId, filters, onFiltersChang
     label: c.name,
   })) || []
 
+  const cityOptions: MultiSelectOption[] = cities?.data?.map(c => ({
+    value: c.id,
+    label: c.name,
+  })) || []
+
   const categoryOptions: MultiSelectOption[] = categories?.data?.map(c => ({
     value: c.id,
     label: c.name,
@@ -67,7 +74,8 @@ export function SupplyFiltersComponent({ planningWeekId, filters, onFiltersChang
     filters.plannerIds.length > 0 ||
     filters.clientIds.length > 0 ||
     filters.categoryIds.length > 0 ||
-    filters.truckTypeIds.length > 0
+    filters.truckTypeIds.length > 0 ||
+    filters.cityIds.length > 0
 
   const clearFilters = () => {
     onFiltersChange({
@@ -75,6 +83,7 @@ export function SupplyFiltersComponent({ planningWeekId, filters, onFiltersChang
       clientIds: [],
       categoryIds: [],
       truckTypeIds: [],
+      cityIds: [],
     })
   }
 
@@ -107,6 +116,17 @@ export function SupplyFiltersComponent({ planningWeekId, filters, onFiltersChang
                 placeholder="Client"
                 searchPlaceholder="Search clients..."
                 emptyText="No clients found"
+              />
+            </div>
+
+            <div className="min-w-[200px]">
+              <MultiSelectCombobox
+                options={cityOptions}
+                value={filters.cityIds}
+                onValueChange={(value) => onFiltersChange({ ...filters, cityIds: value })}
+                placeholder="City"
+                searchPlaceholder="Search cities..."
+                emptyText="No cities found"
               />
             </div>
 

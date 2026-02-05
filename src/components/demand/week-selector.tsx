@@ -71,6 +71,25 @@ export function WeekSelector({ value, onValueChange }: WeekSelectorProps) {
     return null
   }, [selectedWeek, value])
 
+  // Calculate week number and display for dates without planning week records
+  const calculatedWeekInfo = useMemo(() => {
+    if (!selectedDate || selectedWeek) return null
+
+    // Calculate week number (ISO week number)
+    const startOfYear = new Date(selectedDate.getFullYear(), 0, 1)
+    const daysSinceStartOfYear = Math.floor((selectedDate.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000))
+    const weekNumber = Math.ceil((daysSinceStartOfYear + startOfYear.getDay() + 1) / 7)
+
+    // Calculate week end date (Saturday)
+    const weekEnd = new Date(selectedDate)
+    weekEnd.setDate(weekEnd.getDate() + 6)
+
+    // Format display
+    const display = `${format(selectedDate, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`
+
+    return { weekNumber, display }
+  }, [selectedDate, selectedWeek])
+
   // Generate calendar days
   const calendarDays = useMemo(() => {
     const start = startOfMonth(currentMonth)
@@ -120,6 +139,60 @@ export function WeekSelector({ value, onValueChange }: WeekSelectorProps) {
     setCurrentMonth(prev => addMonths(prev, 1))
   }
 
+  // Get current week index and navigation handlers
+  const currentWeekIndex = useMemo(() => {
+    if (!value || !data?.data) return -1
+    return data.data.findIndex(week => week.id === value)
+  }, [value, data])
+
+  const handlePreviousWeek = () => {
+    if (!selectedDate) return
+
+    // If there's a previous week in the data, use it
+    if (data?.data && currentWeekIndex > 0) {
+      const previousWeek = data.data[currentWeekIndex - 1]
+      onValueChange(previousWeek.id)
+      return
+    }
+
+    // Otherwise, calculate previous week (7 days back) and let parent handle it
+    const previousWeekStart = new Date(selectedDate)
+    previousWeekStart.setDate(previousWeekStart.getDate() - 7)
+
+    // Check if this week exists in data
+    const weekId = getWeekIdForDate(previousWeekStart)
+    if (weekId) {
+      onValueChange(weekId)
+    } else {
+      // Pass date string for parent to handle
+      onValueChange(format(previousWeekStart, 'yyyy-MM-dd'))
+    }
+  }
+
+  const handleNextWeek = () => {
+    if (!selectedDate) return
+
+    // If there's a next week in the data, use it
+    if (data?.data && currentWeekIndex >= 0 && currentWeekIndex < data.data.length - 1) {
+      const nextWeek = data.data[currentWeekIndex + 1]
+      onValueChange(nextWeek.id)
+      return
+    }
+
+    // Otherwise, calculate next week (7 days forward) and let parent handle it
+    const nextWeekStart = new Date(selectedDate)
+    nextWeekStart.setDate(nextWeekStart.getDate() + 7)
+
+    // Check if this week exists in data
+    const weekId = getWeekIdForDate(nextWeekStart)
+    if (weekId) {
+      onValueChange(weekId)
+    } else {
+      // Pass date string for parent to handle
+      onValueChange(format(nextWeekStart, 'yyyy-MM-dd'))
+    }
+  }
+
   if (!mounted) {
     return (
       <div className="w-[280px] h-10 rounded-md border border-input bg-background flex items-center px-3 text-sm text-muted-foreground">
@@ -130,26 +203,40 @@ export function WeekSelector({ value, onValueChange }: WeekSelectorProps) {
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={cn(
-            "w-[280px] justify-start text-left font-normal",
-            !value && "text-muted-foreground"
-          )}
-        >
-          <CalendarDays className="mr-2 h-4 w-4" />
-          {selectedWeek
-            ? isMonthly
-              ? selectedWeek.display
-              : `Week ${selectedWeek.weekNumber} - ${selectedWeek.display}`
-            : selectedDate
-            ? `Week of ${format(selectedDate, 'MMM d, yyyy')}`
-            : `Select planning ${periodLabel}`
-          }
-        </Button>
-      </PopoverTrigger>
+    <div className="flex items-center gap-2">
+      {/* Previous Week Button */}
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={handlePreviousWeek}
+        disabled={!value || !selectedDate}
+        className="h-10 w-10"
+        title="Previous week"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+
+      {/* Week Selector */}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className={cn(
+              "w-[280px] justify-start text-left font-normal",
+              !value && "text-muted-foreground"
+            )}
+          >
+            <CalendarDays className="mr-2 h-4 w-4" />
+            {selectedWeek
+              ? isMonthly
+                ? selectedWeek.display
+                : `Week ${selectedWeek.weekNumber} - ${selectedWeek.display}`
+              : calculatedWeekInfo
+              ? `Week ${calculatedWeekInfo.weekNumber} - ${calculatedWeekInfo.display}`
+              : `Select planning ${periodLabel}`
+            }
+          </Button>
+        </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
         <div className="p-3">
           {/* Month/Year Navigation */}
@@ -263,5 +350,18 @@ export function WeekSelector({ value, onValueChange }: WeekSelectorProps) {
         </div>
       </PopoverContent>
     </Popover>
+
+    {/* Next Week Button */}
+    <Button
+      variant="outline"
+      size="icon"
+      onClick={handleNextWeek}
+      disabled={!value || !selectedDate}
+      className="h-10 w-10"
+      title="Next week"
+    >
+      <ChevronRight className="h-4 w-4" />
+    </Button>
+  </div>
   )
 }

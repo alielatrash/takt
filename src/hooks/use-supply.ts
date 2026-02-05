@@ -42,6 +42,7 @@ export interface SupplyFilters {
   clientIds?: string[]
   categoryIds?: string[]
   truckTypeIds?: string[]
+  cityIds?: string[]
 }
 
 export function useSupplyTargets(planningWeekId?: string, filters?: SupplyFilters) {
@@ -63,6 +64,9 @@ export function useSupplyTargets(planningWeekId?: string, filters?: SupplyFilter
       }
       if (filters?.truckTypeIds && filters.truckTypeIds.length > 0) {
         filters.truckTypeIds.forEach(id => params.append('truckTypeIds', id))
+      }
+      if (filters?.cityIds && filters.cityIds.length > 0) {
+        filters.cityIds.forEach(id => params.append('cityIds', id))
       }
 
       const response = await fetch(`/api/supply/targets?${params.toString()}`, {

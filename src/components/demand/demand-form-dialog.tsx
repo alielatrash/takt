@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, Plus, CheckCircle2 } from 'lucide-react'
+import { Loader2, Plus, CheckCircle2, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -277,6 +277,58 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
     if (newWeek) {
       loadWeekData(newWeek.id)
     }
+  }
+
+  // Apply current week's loads to all remaining weeks
+  const applyToAllWeeks = () => {
+    if (!currentWeek || availableWeeks.length <= 1) return
+
+    // Get current form values
+    const formData = form.getValues()
+    const currentWeekLoads = {
+      day1Loads: formData.day1Loads,
+      day2Loads: formData.day2Loads,
+      day3Loads: formData.day3Loads,
+      day4Loads: formData.day4Loads,
+      day5Loads: formData.day5Loads,
+      day6Loads: formData.day6Loads,
+      day7Loads: formData.day7Loads,
+      week1Loads: formData.week1Loads,
+      week2Loads: formData.week2Loads,
+      week3Loads: formData.week3Loads,
+      week4Loads: formData.week4Loads,
+    }
+
+    // Check if current week has any load data
+    const hasData = Object.values(currentWeekLoads).some(val => {
+      const numVal = typeof val === 'number' ? val : 0
+      return val !== undefined && val !== null && numVal > 0
+    })
+
+    if (!hasData) {
+      toast.error('Please fill in load values first')
+      return
+    }
+
+    // Save current week first
+    saveCurrentWeekData()
+
+    // Apply to all remaining weeks
+    const updatedWeekData = { ...weekLoadsData }
+    const remainingWeeks = availableWeeks.slice(currentWeekIndex + 1)
+
+    remainingWeeks.forEach(week => {
+      updatedWeekData[week.id] = { ...currentWeekLoads }
+    })
+
+    // Update state
+    setWeekLoadsData(updatedWeekData)
+
+    toast.success(
+      remainingWeeks.length === 1
+        ? 'Applied to 1 remaining week'
+        : `Applied to ${remainingWeeks.length} remaining weeks`
+    )
   }
 
   // Check for existing forecasts when route configuration changes
@@ -707,55 +759,20 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
               <FormLabel>{isMonthlyPlanning ? 'Weekly Loads (Week 1-4)' : 'Daily Loads (Sun-Sat)'}</FormLabel>
               {isMonthlyPlanning ? (
                 // Monthly planning: Show week inputs
-                <div className="grid grid-cols-4 gap-2 mt-2">
-                  {MONTH_WEEKS.map((week, index) => (
-                    <FormField
-                      key={week.key}
-                      control={form.control}
-                      name={`week${index + 1}Loads` as any}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs text-muted-foreground">
-                            {week.label}
-                            {weekDateRanges[index] && (
-                              <div className="text-[10px]">
-                                days {weekDateRanges[index].start}-{weekDateRanges[index].end}
-                              </div>
-                            )}
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              className="text-center"
-                              {...field}
-                              onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  ))}
-                </div>
-              ) : (
-                // Weekly planning: Show day inputs
-                <div className="grid grid-cols-7 gap-2 mt-2">
-                  {WEEK_DAYS.map((day, index) => {
-                    const dayData = dayInfo[index]
-                    const isPast = dayData?.isPast || false
-
-                    return (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-4 gap-2 mt-2">
+                    {MONTH_WEEKS.map((week, index) => (
                       <FormField
-                        key={day.key}
+                        key={week.key}
                         control={form.control}
-                        name={`day${index + 1}Loads` as keyof CreateDemandForecastInput}
+                        name={`week${index + 1}Loads` as any}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className={`text-xs ${isPast ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
-                              {day.label}
-                              {dayData && (
-                                <div className="text-[10px] font-normal">
-                                  {dayData.date}
+                            <FormLabel className="text-xs text-muted-foreground">
+                              {week.label}
+                              {weekDateRanges[index] && (
+                                <div className="text-[10px]">
+                                  days {weekDateRanges[index].start}-{weekDateRanges[index].end}
                                 </div>
                               )}
                             </FormLabel>
@@ -763,22 +780,85 @@ export function DemandFormDialog({ open, onOpenChange, planningWeekId, forecast 
                               <Input
                                 type="number"
                                 min="0"
-                                placeholder=""
-                                disabled={isPast}
-                                className={`text-center ${isPast ? 'bg-muted cursor-not-allowed' : ''}`}
+                                className="text-center"
                                 {...field}
-                                value={field.value ?? ''}
-                                onChange={(e) => {
-                                  const value = e.target.value
-                                  field.onChange(value === '' ? undefined : parseInt(value) || 0)
-                                }}
+                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                               />
                             </FormControl>
                           </FormItem>
                         )}
                       />
-                    )
-                  })}
+                    ))}
+                  </div>
+                  {availableWeeks.length > 1 && currentWeekIndex < availableWeeks.length - 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={applyToAllWeeks}
+                      className="w-full"
+                    >
+                      <Copy className="mr-2 h-3.5 w-3.5" />
+                      Apply to remaining {availableWeeks.length - currentWeekIndex - 1} week{availableWeeks.length - currentWeekIndex - 1 !== 1 ? 's' : ''}
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                // Weekly planning: Show day inputs
+                <div className="space-y-2">
+                  <div className="grid grid-cols-7 gap-2 mt-2">
+                    {WEEK_DAYS.map((day, index) => {
+                      const dayData = dayInfo[index]
+                      const isPast = dayData?.isPast || false
+
+                      return (
+                        <FormField
+                          key={day.key}
+                          control={form.control}
+                          name={`day${index + 1}Loads` as keyof CreateDemandForecastInput}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className={`text-xs ${isPast ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
+                                {day.label}
+                                {dayData && (
+                                  <div className="text-[10px] font-normal">
+                                    {dayData.date}
+                                  </div>
+                                )}
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  placeholder=""
+                                  disabled={isPast}
+                                  className={`text-center ${isPast ? 'bg-muted cursor-not-allowed' : ''}`}
+                                  {...field}
+                                  value={field.value ?? ''}
+                                  onChange={(e) => {
+                                    const value = e.target.value
+                                    field.onChange(value === '' ? undefined : parseInt(value) || 0)
+                                  }}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      )
+                    })}
+                  </div>
+                  {availableWeeks.length > 1 && currentWeekIndex < availableWeeks.length - 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={applyToAllWeeks}
+                      className="w-full"
+                    >
+                      <Copy className="mr-2 h-3.5 w-3.5" />
+                      Apply to remaining {availableWeeks.length - currentWeekIndex - 1} week{availableWeeks.length - currentWeekIndex - 1 !== 1 ? 's' : ''}
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

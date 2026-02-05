@@ -21,6 +21,7 @@ export default function SupplyPlanningPage() {
     clientIds: [],
     categoryIds: [],
     truckTypeIds: [],
+    cityIds: [],
   })
 
   const { data: weeksData } = usePlanningWeeks()
@@ -40,6 +41,7 @@ export default function SupplyPlanningPage() {
       clientIds: [],
       categoryIds: [],
       truckTypeIds: [],
+      cityIds: [],
     })
   }
 

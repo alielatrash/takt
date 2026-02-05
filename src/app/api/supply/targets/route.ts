@@ -29,6 +29,7 @@ export async function GET(request: Request) {
     const clientIds = searchParams.getAll('clientIds')
     const categoryIds = searchParams.getAll('categoryIds')
     const truckTypeIds = searchParams.getAll('truckTypeIds')
+    const cityIds = searchParams.getAll('cityIds')
 
     // Build where clause with filters
     const demandWhereClause = orgScopedWhere(session, {
@@ -42,6 +43,9 @@ export async function GET(request: Request) {
             resourceTypeId: { in: truckTypeIds }
           }
         }
+      }),
+      ...(cityIds.length > 0 && {
+        pickupLocationId: { in: cityIds }
       }),
     })
 
