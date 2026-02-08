@@ -8,6 +8,8 @@ interface RedashConfig {
   actualRequestsApiKey: string
   completionQueryId: string
   completionApiKey: string
+  suppliersQueryId: string
+  suppliersApiKey: string
 }
 
 function getConfig(): RedashConfig {
@@ -17,6 +19,8 @@ function getConfig(): RedashConfig {
     actualRequestsApiKey: process.env.REDASH_ACTUAL_REQUESTS_API_KEY || '',
     completionQueryId: process.env.REDASH_COMPLETION_QUERY_ID || '',
     completionApiKey: process.env.REDASH_COMPLETION_API_KEY || '',
+    suppliersQueryId: process.env.REDASH_SUPPLIERS_QUERY_ID || '',
+    suppliersApiKey: process.env.REDASH_SUPPLIERS_API_KEY || '',
   }
 }
 
@@ -183,15 +187,118 @@ export async function syncFleetCompletions(): Promise<number> {
   }
 }
 
-export async function syncAll(): Promise<{ requests: number; completions: number }> {
-  const [requests, completions] = await Promise.allSettled([
+export async function syncSuppliers(): Promise<number> {
+  const config = getConfig()
+
+  if (!config.suppliersQueryId || !config.suppliersApiKey) {
+    console.log('Skipping suppliers sync - missing config')
+    return 0
+  }
+
+  await prisma.redashSync.upsert({
+    where: { endpoint: 'SUPPLIERS' },
+    create: { endpoint: 'SUPPLIERS', lastSyncStatus: 'IN_PROGRESS' },
+    update: { lastSyncStatus: 'IN_PROGRESS', errorMessage: null },
+  })
+
+  try {
+    const csv = await fetchCsv(config.suppliersQueryId, config.suppliersApiKey)
+    const records = parse(csv, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+    }) as Record<string, string>[]
+
+    // Get all active organizations
+    const organizations = await prisma.organization.findMany({
+      where: { isActive: true },
+      select: { id: true },
+    })
+
+    let count = 0
+    for (const record of records) {
+      const name = record.name || record.supplier_name || record.fleet_partner
+      if (!name) continue
+
+      const trimmedName = name.trim()
+      const pointOfContact = record.point_of_contact || record.contact || null
+      const email = record.email || null
+      const phoneNumber = record.phone_number || record.phone || null
+
+      // Sync supplier for each organization
+      for (const org of organizations) {
+        // Find if supplier already exists for this org
+        const existing = await prisma.party.findFirst({
+          where: {
+            organizationId: org.id,
+            name: { equals: trimmedName, mode: 'insensitive' },
+            partyRole: 'SUPPLIER',
+          },
+        })
+
+        if (existing) {
+          // Update existing supplier with Redash data
+          await prisma.party.update({
+            where: { id: existing.id },
+            data: {
+              pointOfContact: pointOfContact || existing.pointOfContact,
+              email: email || existing.email,
+              phoneNumber: phoneNumber || existing.phoneNumber,
+            },
+          })
+        } else {
+          // Create new supplier from Redash data for this org
+          await prisma.party.create({
+            data: {
+              organizationId: org.id,
+              name: trimmedName,
+              uniqueIdentifier: `sup_${Date.now().toString(36)}${Math.random().toString(36).substr(2, 9)}`,
+              pointOfContact,
+              email,
+              phoneNumber,
+              partyRole: 'SUPPLIER',
+              isActive: true,
+            },
+          })
+        }
+      }
+      count++
+    }
+
+    await prisma.redashSync.update({
+      where: { endpoint: 'SUPPLIERS' },
+      data: {
+        lastSyncAt: new Date(),
+        lastSyncStatus: 'SUCCESS',
+        recordsCount: count,
+        errorMessage: null,
+      },
+    })
+
+    return count
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+    await prisma.redashSync.update({
+      where: { endpoint: 'SUPPLIERS' },
+      data: { lastSyncStatus: 'FAILED', errorMessage },
+    })
+
+    throw error
+  }
+}
+
+export async function syncAll(): Promise<{ requests: number; completions: number; suppliers: number }> {
+  const [requests, completions, suppliers] = await Promise.allSettled([
     syncActualRequests(),
     syncFleetCompletions(),
+    syncSuppliers(),
   ])
 
   return {
     requests: requests.status === 'fulfilled' ? requests.value : 0,
     completions: completions.status === 'fulfilled' ? completions.value : 0,
+    suppliers: suppliers.status === 'fulfilled' ? suppliers.value : 0,
   }
 }
 
