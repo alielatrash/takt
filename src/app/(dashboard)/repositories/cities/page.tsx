@@ -51,11 +51,17 @@ export default function CitiesPage() {
     onProgress?: (current: number, total: number, timeRemaining?: string) => void
   } | null>(null)
   const [editingItem, setEditingItem] = useState<Location | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
 
   const { data: authData } = useAuth()
   const isAdmin = authData?.user?.role === 'ADMIN'
 
-  const { data, isLoading } = useCities({ q: debouncedSearch, isActive: true })
+  const { data, isLoading } = useCities({
+    q: debouncedSearch,
+    page: currentPage,
+    pageSize: 50,
+    isActive: true
+  })
   const createMutation = useCreateCity()
   const updateMutation = useUpdateCity()
   const deleteMutation = useDeleteCity()
@@ -244,6 +250,15 @@ export default function CitiesPage() {
     }
   }, [debouncedSearch])
 
+  const handleSearch = useCallback((query: string) => {
+    setSearch(query)
+    setCurrentPage(1) // Reset to first page when searching
+  }, [])
+
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page)
+  }, [])
+
   const handleSubmit = async (formData: { name: string; nameAr?: string; code?: string; region?: string }) => {
     try {
       if (editingItem) {
@@ -283,13 +298,15 @@ export default function CitiesPage() {
         columns={columns}
         isLoading={isLoading}
         searchPlaceholder="Search cities..."
-        onSearch={setSearch}
+        onSearch={handleSearch}
         onAdd={handleAdd}
         onEdit={handleEdit}
         onDelete={handleDelete}
         onBulkDelete={handleBulkDelete}
         onSelectAll={handleSelectAll}
         addButtonLabel="Add City"
+        pagination={data?.meta}
+        onPageChange={handlePageChange}
         headerActions={
           <>
             <Button variant="outline" onClick={() => setIsCsvDialogOpen(true)}>
