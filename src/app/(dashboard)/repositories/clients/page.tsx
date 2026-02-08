@@ -25,16 +25,18 @@ const columns = [
   { key: 'uniqueIdentifier', label: 'ID' },
   { key: 'name', label: 'Name' },
   { key: 'pointOfContact', label: 'Point of Contact' },
+  { key: 'email', label: 'Email' },
   { key: 'phoneNumber', label: 'Phone Number' },
 ]
 
 const formFields = [
   { name: 'name', label: 'Name', placeholder: 'Enter client name', required: true },
   { name: 'pointOfContact', label: 'Point of Contact', placeholder: 'Enter contact person name (optional)' },
+  { name: 'email', label: 'Email', placeholder: 'Enter contact email (optional)', type: 'email' as const },
   { name: 'phoneNumber', label: 'Phone Number', placeholder: 'Enter contact phone (optional)', type: 'phone' as const },
 ]
 
-const defaultValues = { name: '', pointOfContact: '', phoneNumber: '' }
+const defaultValues = { name: '', pointOfContact: '', email: '', phoneNumber: '' }
 
 export default function ClientsPage() {
   const [search, setSearch] = useState('')
@@ -257,7 +259,7 @@ export default function ClientsPage() {
     setCurrentPage(page)
   }, [])
 
-  const handleSubmit = async (formData: { name: string; pointOfContact?: string; phoneNumber?: string }) => {
+  const handleSubmit = async (formData: { name: string; pointOfContact?: string; email?: string; phoneNumber?: string }) => {
     try {
       if (editingItem) {
         await updateMutation.mutateAsync({ id: editingItem.id, ...formData })
@@ -333,6 +335,7 @@ export default function ClientsPage() {
         defaultValues={editingItem ? {
           name: editingItem.name,
           pointOfContact: editingItem.pointOfContact || '',
+          email: editingItem.email || '',
           phoneNumber: editingItem.phoneNumber || ''
         } : defaultValues}
         onSubmit={handleSubmit}
@@ -345,7 +348,7 @@ export default function ClientsPage() {
         onOpenChange={setIsCsvDialogOpen}
         title="Import Clients from CSV"
         description="Upload a CSV file with client data. Download the template to see the required format."
-        templateFields={['name', 'pointOfContact', 'phoneNumber']}
+        templateFields={['name', 'pointOfContact', 'email', 'phoneNumber']}
         apiEndpoint="/api/clients/import"
         dataKey="clients"
         queryKey={['clients']}

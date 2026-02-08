@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { clients } = body as { clients: { name: string; pointOfContact?: string; phoneNumber?: string }[] }
+    const { clients } = body as { clients: { name: string; pointOfContact?: string; email?: string; phoneNumber?: string }[] }
 
     if (!Array.isArray(clients) || clients.length === 0) {
       return NextResponse.json(
@@ -37,6 +37,7 @@ export async function POST(request: Request) {
       try {
         const name = clientData.name?.trim()
         const pointOfContact = clientData.pointOfContact?.trim() || null
+        const email = clientData.email?.trim() || null
         const phoneNumber = clientData.phoneNumber?.trim() || null
 
         if (!name) {
@@ -65,6 +66,7 @@ export async function POST(request: Request) {
             name,
             uniqueIdentifier: generateUniqueIdentifier(PartyRole.CUSTOMER),
             pointOfContact,
+            email,
             phoneNumber,
             partyRole: PartyRole.CUSTOMER,
             isActive: true,

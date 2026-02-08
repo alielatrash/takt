@@ -17,7 +17,8 @@ interface ClientQuickCreateDialogProps {
 const clientFields = [
   { name: 'name', label: 'Client Name', placeholder: 'Enter client name', required: true },
   { name: 'pointOfContact', label: 'Point of Contact', placeholder: 'Contact person name' },
-  { name: 'phoneNumber', label: 'Phone Number', placeholder: 'Contact phone number' },
+  { name: 'email', label: 'Email', placeholder: 'Contact email address', type: 'email' as const },
+  { name: 'phoneNumber', label: 'Phone Number', placeholder: 'Contact phone number', type: 'phone' as const },
 ]
 
 export function ClientQuickCreateDialog({
@@ -32,6 +33,7 @@ export function ClientQuickCreateDialog({
   const defaultValues = {
     name: initialName,
     pointOfContact: '',
+    email: '',
     phoneNumber: '',
   }
 

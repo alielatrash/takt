@@ -4,6 +4,7 @@ import { z } from 'zod'
 export const createClientSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name must be less than 100 characters'),
   pointOfContact: z.string().max(100, 'Point of contact must be less than 100 characters').optional(),
+  email: z.string().email('Invalid email address').optional().or(z.literal('')),
   phoneNumber: z.string().max(20, 'Phone number must be less than 20 characters').optional(),
 })
 
