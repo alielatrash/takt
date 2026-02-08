@@ -387,6 +387,7 @@ model Party {
   name             String // Organization name
   uniqueIdentifier String?      @unique // Auto-generated unique ID (e.g., "cli_abc123xyz")
   pointOfContact   String? // Main contact person name
+  email            String? // Contact email address
   phoneNumber      String? // Contact phone number
   partyRole        PartyRole // CUSTOMER, SUPPLIER, CARRIER, etc.
 

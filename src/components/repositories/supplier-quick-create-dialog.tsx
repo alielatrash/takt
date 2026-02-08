@@ -16,12 +16,14 @@ interface SupplierQuickCreateDialogProps {
 const supplierFields = [
   { name: 'name', label: 'Supplier Name', placeholder: 'Enter supplier name', required: true },
   { name: 'pointOfContact', label: 'Point of Contact', placeholder: 'Contact person name' },
-  { name: 'phoneNumber', label: 'Phone Number', placeholder: 'Contact phone number' },
+  { name: 'email', label: 'Email', placeholder: 'Contact email address', type: 'email' as const },
+  { name: 'phoneNumber', label: 'Phone Number', placeholder: 'Contact phone number', type: 'phone' as const },
 ]
 
 const defaultValues = {
   name: '',
   pointOfContact: '',
+  email: '',
   phoneNumber: '',
 }
 

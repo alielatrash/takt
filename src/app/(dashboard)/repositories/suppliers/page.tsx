@@ -26,12 +26,13 @@ const columns = [
   { key: 'uniqueIdentifier', label: 'ID' },
   { key: 'name', label: 'Name' },
   { key: 'pointOfContact', label: 'Point of Contact' },
+  { key: 'email', label: 'Email' },
   { key: 'phoneNumber', label: 'Phone Number' },
   { key: 'capacity', label: 'Capacity' },
   { key: 'capacityType', label: 'Capacity Type' },
 ]
 
-const defaultValues = { name: '', pointOfContact: '', phoneNumber: '', capacity: '', capacityType: '' }
+const defaultValues = { name: '', pointOfContact: '', email: '', phoneNumber: '', capacity: '', capacityType: '' }
 
 export default function SuppliersPage() {
   const [search, setSearch] = useState('')
@@ -71,6 +72,7 @@ export default function SuppliersPage() {
   const formFields = [
     { name: 'name', label: 'Name', placeholder: 'Enter supplier name (e.g., WLS, MOMENTUM)', required: true },
     { name: 'pointOfContact', label: 'Point of Contact', placeholder: 'Enter contact person name (optional)' },
+    { name: 'email', label: 'Email', placeholder: 'Enter contact email (optional)', type: 'email' as const },
     { name: 'phoneNumber', label: 'Phone Number', placeholder: 'Enter contact phone (optional)', type: 'phone' as const },
     { name: 'capacity', label: 'Capacity', type: 'number' as const, placeholder: 'Enter total capacity (e.g., 100 trucks)' },
     { name: 'capacityType', label: 'Capacity Type', type: 'select' as const, placeholder: 'Select truck type', options: truckTypeOptions, isLoadingOptions: isLoadingTruckTypes },
@@ -345,6 +347,7 @@ export default function SuppliersPage() {
         defaultValues={(editingItem ? {
           name: editingItem.name,
           pointOfContact: editingItem.pointOfContact || '',
+          email: editingItem.email || '',
           phoneNumber: editingItem.phoneNumber || '',
           capacity: editingItem.capacity?.toString() || '',
           capacityType: editingItem.capacityType || ''
@@ -359,7 +362,7 @@ export default function SuppliersPage() {
         onOpenChange={setIsCsvDialogOpen}
         title="Import Suppliers from CSV"
         description="Upload a CSV file with supplier data. Download the template to see the required format."
-        templateFields={['name', 'pointOfContact', 'phoneNumber']}
+        templateFields={['name', 'pointOfContact', 'email', 'phoneNumber']}
         apiEndpoint="/api/suppliers/import"
         dataKey="suppliers"
         queryKey={['suppliers']}
