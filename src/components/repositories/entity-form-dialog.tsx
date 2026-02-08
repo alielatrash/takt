@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select'
 import { usePhoneValidation } from '@/hooks/use-phone-validation'
 
-interface FormFieldConfig {
+export interface FormFieldConfig {
   name: string
   label: string
   placeholder?: string
